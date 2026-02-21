@@ -7,26 +7,22 @@ namespace TinyBlocks\Logger\Internal\Redactor;
 use Closure;
 use TinyBlocks\Logger\Redaction;
 
-final readonly class FieldRedactor implements Redaction
+final readonly class Redactor implements Redaction
 {
-    public function __construct(private string $field, private Closure $maskingFunction)
+    /** @param string[] $fields */
+    public function __construct(private array $fields, private Closure $maskingFunction)
     {
     }
 
     public function redact(array $data): array
     {
-        return $this->apply(data: $data);
-    }
-
-    private function apply(array $data): array
-    {
         foreach ($data as $key => $value) {
             if (is_array($value)) {
-                $data[$key] = $this->apply(data: $value);
+                $data[$key] = $this->redact(data: $value);
                 continue;
             }
 
-            if ($key === $this->field && is_string($value)) {
+            if (in_array($key, $this->fields, true) && is_string($value)) {
                 $data[$key] = ($this->maskingFunction)($value);
             }
         }

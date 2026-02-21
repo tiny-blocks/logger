@@ -45,7 +45,8 @@
     },
     "require": {
         "php": "^8.5",
-        "psr/log": "^3.0"
+        "psr/log": "^3.0",
+        "tiny-blocks/collection": "^1.15"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.5",

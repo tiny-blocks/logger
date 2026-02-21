@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace TinyBlocks\Logger;
 
-/**
- * Represents the severity level of a log entry.
- */
 enum LogLevel: string
 {
     case INFO = 'INFO';
     case ERROR = 'ERROR';
+    case DEBUG = 'DEBUG';
+    case ALERT = 'ALERT';
+    case NOTICE = 'NOTICE';
     case WARNING = 'WARNING';
+    case CRITICAL = 'CRITICAL';
+    case EMERGENCY = 'EMERGENCY';
 }

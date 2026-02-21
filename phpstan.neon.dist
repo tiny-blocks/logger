@@ -4,6 +4,6 @@ parameters:
   level: 9
   tmpDir: report/phpstan
   ignoreErrors:
+    - '#mixed#'
     - '#type specified in iterable type array#'
-    - '#Using nullsafe property access#'
   reportUnmatchedIgnoredErrors: false

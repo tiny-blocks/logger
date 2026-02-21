@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger;
 
 /**
- * Defines the contract for redacting sensitive information from log data.
+ * Defines the contract for redacting sensitive information from structured log data.
+ *
+ * Each implementation is responsible for a specific redaction strategy (e.g., masking a field).
+ * Redaction is applied recursively to nested arrays.
  */
 interface Redaction
 {

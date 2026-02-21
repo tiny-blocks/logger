@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TinyBlocks\Logger\Internal;
+namespace TinyBlocks\Logger;
 
 final readonly class LogContext
 {
