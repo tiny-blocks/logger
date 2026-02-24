@@ -20,7 +20,7 @@ final readonly class LogStream
             return new LogStream(resource: $resource);
         }
 
-        $fallback = fopen('php://memory', 'wb+');
+        $fallback = fopen('php://stderr', 'wb');
 
         return new LogStream(resource: $fallback);
     }
