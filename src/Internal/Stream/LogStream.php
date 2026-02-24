@@ -16,7 +16,13 @@ final readonly class LogStream
 
     public static function from(mixed $resource = null): LogStream
     {
-        return new LogStream(resource: $resource ?? STDERR);
+        if ($resource !== null) {
+            return new LogStream(resource: $resource);
+        }
+
+        $fallback = fopen('php://stderr', 'wb');
+
+        return new LogStream(resource: $fallback);
     }
 
     public function write(string $content): void
