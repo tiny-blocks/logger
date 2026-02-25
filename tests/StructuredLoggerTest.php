@@ -8,6 +8,8 @@ use PHPUnit\Framework\TestCase;
 use TinyBlocks\Logger\LogContext;
 use TinyBlocks\Logger\Redactions\DocumentRedaction;
 use TinyBlocks\Logger\Redactions\EmailRedaction;
+use TinyBlocks\Logger\Redactions\NameRedaction;
+use TinyBlocks\Logger\Redactions\PasswordRedaction;
 use TinyBlocks\Logger\Redactions\PhoneRedaction;
 use TinyBlocks\Logger\StructuredLogger;
 
@@ -467,6 +469,210 @@ final class StructuredLoggerTest extends TestCase
         self::assertStringNotContainsString('*', $output);
     }
 
+    public function testLogWithPasswordRedaction(): void
+    {
+        /** @Given a structured logger with password redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'auth-service')
+            ->withRedactions(PasswordRedaction::default())
+            ->build();
+
+        /** @When logging with a password field */
+        $logger->info(message: 'login.attempt', context: ['password' => 's3cr3t!', 'username' => 'john']);
+
+        /** @Then the password should be fully masked */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('*******', $output);
+        self::assertStringNotContainsString('s3cr3t!', $output);
+        self::assertStringContainsString('john', $output);
+    }
+
+    public function testLogWithPasswordRedactionOnMultipleFields(): void
+    {
+        /** @Given a structured logger with password redaction targeting multiple field names */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'auth-service')
+            ->withRedactions(PasswordRedaction::from(fields: ['password', 'secret', 'token']))
+            ->build();
+
+        /** @When logging with multiple password field variations */
+        $logger->info(message: 'auth.check', context: [
+            'password' => 'myP@ssw0rd',
+            'secret'   => 'hidden-value',
+            'token'    => 'abc123xyz'
+        ]);
+
+        /** @Then all password fields should be fully masked */
+        $output = $this->streamContents();
+
+        self::assertStringNotContainsString('myP@ssw0rd', $output);
+        self::assertStringNotContainsString('hidden-value', $output);
+        self::assertStringNotContainsString('abc123xyz', $output);
+    }
+
+    public function testLogWithPasswordRedactionOnShortValue(): void
+    {
+        /** @Given a structured logger with password redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'auth-service')
+            ->withRedactions(PasswordRedaction::default())
+            ->build();
+
+        /** @When logging with a short password */
+        $logger->info(message: 'login.attempt', context: ['password' => 'ab']);
+
+        /** @Then the password should still be fully masked */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('**', $output);
+        self::assertStringNotContainsString('"password":"ab"', $output);
+    }
+
+    public function testLogWithPasswordRedactionOnNestedField(): void
+    {
+        /** @Given a structured logger with password redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'auth-service')
+            ->withRedactions(PasswordRedaction::default())
+            ->build();
+
+        /** @When logging with a nested structure containing a password field */
+        $logger->info(message: 'credentials.received', context: [
+            'credentials' => [
+                'password' => 'sup3rS3cret',
+                'username' => 'admin'
+            ]
+        ]);
+
+        /** @Then the nested password should be fully masked */
+        $output = $this->streamContents();
+
+        self::assertStringNotContainsString('sup3rS3cret', $output);
+        self::assertStringContainsString('"username":"admin"', $output);
+    }
+
+    public function testLogWithNameRedaction(): void
+    {
+        /** @Given a structured logger with name redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(NameRedaction::default())
+            ->build();
+
+        /** @When logging with a name field */
+        $logger->info(message: 'user.created', context: ['name' => 'Gustavo', 'role' => 'admin']);
+
+        /** @Then the name should be redacted preserving only the first 2 characters */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('Gu*****', $output);
+        self::assertStringNotContainsString('"name":"Gustavo"', $output);
+        self::assertStringContainsString('admin', $output);
+    }
+
+    public function testLogWithNameRedactionOnMultipleFields(): void
+    {
+        /** @Given a structured logger with name redaction targeting multiple field names */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(
+                NameRedaction::from(
+                    fields: ['name', 'full_name', 'firstName'],
+                    visiblePrefixLength: 3
+                )
+            )
+            ->build();
+
+        /** @When logging with multiple name field variations */
+        $logger->info(message: 'user.updated', context: [
+            'name'      => 'Gustavo',
+            'full_name' => 'Gustavo Freze',
+            'firstName' => 'Maria'
+        ]);
+
+        /** @Then all name fields should be redacted showing only the first 3 characters */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('Gus****', $output);
+        self::assertStringContainsString('Gus**********', $output);
+        self::assertStringContainsString('Mar**', $output);
+        self::assertStringNotContainsString('"name":"Gustavo"', $output);
+        self::assertStringNotContainsString('"full_name":"Gustavo Freze"', $output);
+        self::assertStringNotContainsString('"firstName":"Maria"', $output);
+    }
+
+    public function testLogWithNameRedactionWhenValueIsShorterThanVisibleLength(): void
+    {
+        /** @Given a structured logger with name redaction configured to show 10 characters */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(NameRedaction::from(fields: ['name'], visiblePrefixLength: 10))
+            ->build();
+
+        /** @When logging with a name shorter than the visible length */
+        $logger->info(message: 'user.check', context: ['name' => 'Ana']);
+
+        /** @Then the value should remain exactly as-is with no masking asterisks */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('"name":"Ana"', $output);
+        self::assertStringNotContainsString('*', $output);
+    }
+
+    public function testLogWithNameRedactionExactLengthMatch(): void
+    {
+        /** @Given a structured logger with name redaction where visible length equals value length */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(NameRedaction::from(fields: ['name'], visiblePrefixLength: 3))
+            ->build();
+
+        /** @When logging with a name whose length equals the visible prefix length */
+        $logger->info(message: 'user.check', context: ['name' => 'Ana']);
+
+        /** @Then the value should remain exactly as-is with no masking asterisks */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('"name":"Ana"', $output);
+        self::assertStringNotContainsString('*', $output);
+    }
+
+    public function testLogWithNameRedactionOnNestedField(): void
+    {
+        /** @Given a structured logger with name redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(NameRedaction::default())
+            ->build();
+
+        /** @When logging with a nested structure containing a name field */
+        $logger->info(message: 'profile.loaded', context: [
+            'profile' => [
+                'name'  => 'Gustavo',
+                'email' => 'gustavo@example.com'
+            ]
+        ]);
+
+        /** @Then the nested name should be redacted */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('Gu*****', $output);
+        self::assertStringNotContainsString('"name":"Gustavo"', $output);
+
+        /** @And the sibling field should be preserved */
+        self::assertStringContainsString('"email":"gustavo@example.com"', $output);
+    }
+
     public function testLogWithMultipleRedactions(): void
     {
         /** @Given a structured logger with multiple redactions */
@@ -495,6 +701,43 @@ final class StructuredLoggerTest extends TestCase
         self::assertStringContainsString('jo**@example.com', $output);
         self::assertStringContainsString('**********7766', $output);
         self::assertStringContainsString('John', $output);
+    }
+
+    public function testLogWithAllRedactions(): void
+    {
+        /** @Given a structured logger with all available redactions */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'full-service')
+            ->withRedactions(
+                DocumentRedaction::default(),
+                EmailRedaction::default(),
+                PhoneRedaction::default(),
+                PasswordRedaction::default(),
+                NameRedaction::default()
+            )
+            ->build();
+
+        /** @When logging with all sensitive fields */
+        $logger->info(message: 'user.full.register', context: [
+            'document' => '12345678900',
+            'email'    => 'john@example.com',
+            'phone'    => '+5511999887766',
+            'password' => 's3cr3t!',
+            'name'     => 'John',
+            'status'   => 'active'
+        ]);
+
+        /** @Then each field should be redacted according to its rule */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('********900', $output);
+        self::assertStringContainsString('jo**@example.com', $output);
+        self::assertStringContainsString('**********7766', $output);
+        self::assertStringNotContainsString('s3cr3t!', $output);
+        self::assertStringContainsString('Jo**', $output);
+        self::assertStringNotContainsString('"name":"John"', $output);
+        self::assertStringContainsString('active', $output);
     }
 
     public function testLogWithoutRedaction(): void

@@ -170,12 +170,67 @@ use TinyBlocks\Logger\Redactions\PhoneRedaction;
 PhoneRedaction::from(fields: ['phone', 'mobile', 'whatsapp'], visibleSuffixLength: 4);
 ```
 
+#### Password redaction
+
+Masks the entire value. No characters are preserved.
+
+```php
+use TinyBlocks\Logger\StructuredLogger;
+use TinyBlocks\Logger\Redactions\PasswordRedaction;
+
+$logger = StructuredLogger::create()
+    ->withComponent(component: 'auth-service')
+    ->withRedactions(PasswordRedaction::default())
+    ->build();
+
+$logger->info(message: 'login.attempt', context: ['password' => 's3cr3t!']);
+# password → "*******"
+```
+
+With custom fields:
+
+```php
+use TinyBlocks\Logger\Redactions\PasswordRedaction;
+
+PasswordRedaction::from(fields: ['password', 'secret', 'token']);
+```
+
+#### Name redaction
+
+Preserves the first N characters (default: 2) and masks the rest.
+
+```php
+use TinyBlocks\Logger\StructuredLogger;
+use TinyBlocks\Logger\Redactions\NameRedaction;
+
+$logger = StructuredLogger::create()
+    ->withComponent(component: 'user-service')
+    ->withRedactions(NameRedaction::default())
+    ->build();
+
+$logger->info(message: 'user.created', context: ['name' => 'Gustavo']);
+# name → "Gu*****"
+```
+
+With custom fields and visible length:
+
+```php
+use TinyBlocks\Logger\Redactions\NameRedaction;
+
+NameRedaction::from(fields: ['name', 'full_name', 'firstName'], visiblePrefixLength: 3);
+# "Gustavo"       → "Gus****"
+# "Gustavo Freze" → "Gus**********"
+# "Maria"         → "Mar**"
+```
+
 #### Composing multiple redactions
 
 ```php
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\DocumentRedaction;
 use TinyBlocks\Logger\Redactions\EmailRedaction;
+use TinyBlocks\Logger\Redactions\NameRedaction;
+use TinyBlocks\Logger\Redactions\PasswordRedaction;
 use TinyBlocks\Logger\Redactions\PhoneRedaction;
 
 $logger = StructuredLogger::create()
@@ -183,7 +238,9 @@ $logger = StructuredLogger::create()
     ->withRedactions(
         DocumentRedaction::default(),
         EmailRedaction::default(),
-        PhoneRedaction::default()
+        PhoneRedaction::default(),
+        PasswordRedaction::default(),
+        NameRedaction::default()
     )
     ->build();
 
@@ -191,12 +248,16 @@ $logger->info(message: 'user.registered', context: [
     'document' => '12345678900',
     'email'    => 'john@example.com',
     'phone'    => '+5511999887766',
-    'name'     => 'John'
+    'password' => 's3cr3t!',
+    'name'     => 'John',
+    'status'   => 'active'
 ]);
 # document → "********900"
 # email    → "jo**@example.com"
 # phone    → "**********7766"
-# name     → "John" (unchanged)
+# password → "*******"
+# name     → "Jo**"
+# status   → "active" (unchanged)
 ```
 
 #### Custom redaction
