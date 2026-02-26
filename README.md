@@ -172,7 +172,8 @@ PhoneRedaction::from(fields: ['phone', 'mobile', 'whatsapp'], visibleSuffixLengt
 
 #### Password redaction
 
-Masks the entire value. No characters are preserved.
+Masks the entire value with a fixed-length mask (default: 8 characters). The original value's length is never revealed
+in the output, preventing information leakage about password size.
 
 ```php
 use TinyBlocks\Logger\StructuredLogger;
@@ -184,15 +185,21 @@ $logger = StructuredLogger::create()
     ->build();
 
 $logger->info(message: 'login.attempt', context: ['password' => 's3cr3t!']);
-# password → "*******"
+# password → "********"
+
+$logger->info(message: 'login.attempt', context: ['password' => '123']);
+# password → "********" (same mask regardless of length)
 ```
 
-With custom fields:
+With custom fields and fixed mask length:
 
 ```php
 use TinyBlocks\Logger\Redactions\PasswordRedaction;
 
-PasswordRedaction::from(fields: ['password', 'secret', 'token']);
+PasswordRedaction::from(fields: ['password', 'secret', 'token'], fixedMaskLength: 12);
+# "s3cr3t!"       → "************"
+# "ab"            → "************"
+# "long_password" → "************"
 ```
 
 #### Name redaction

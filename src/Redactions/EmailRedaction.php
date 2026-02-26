@@ -24,10 +24,10 @@ final readonly class EmailRedaction implements Redaction
                     return str_repeat('*', strlen($value));
                 }
 
-                $localPart = substr($value, 0, $atPosition);
                 $domain = substr($value, $atPosition);
-                $visiblePrefix = substr($localPart, 0, $visiblePrefixLength);
+                $localPart = substr($value, 0, $atPosition);
                 $maskedSuffix = str_repeat('*', max(0, strlen($localPart) - $visiblePrefixLength));
+                $visiblePrefix = substr($localPart, 0, $visiblePrefixLength);
 
                 return sprintf('%s%s%s', $visiblePrefix, $maskedSuffix, $domain);
             }
