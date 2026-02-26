@@ -528,7 +528,7 @@ final class StructuredLoggerTest extends TestCase
         /** @Then the password should still be fully masked */
         $output = $this->streamContents();
 
-        self::assertStringContainsString('**', $output);
+        self::assertStringContainsString('********', $output);
         self::assertStringNotContainsString('"password":"ab"', $output);
     }
 
@@ -554,6 +554,46 @@ final class StructuredLoggerTest extends TestCase
 
         self::assertStringNotContainsString('sup3rS3cret', $output);
         self::assertStringContainsString('"username":"admin"', $output);
+    }
+
+
+    public function testLogWithPasswordRedactionDoesNotRevealValueLength(): void
+    {
+        /** @Given a structured logger with password redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'auth-service')
+            ->withRedactions(PasswordRedaction::default())
+            ->build();
+
+        /** @When logging passwords of different lengths */
+        $logger->info(message: 'login.short', context: ['password' => '123']);
+        $logger->info(message: 'login.long', context: ['password' => 'mySuperLongP@ssw0rd!123']);
+
+        /** @Then both should produce the same fixed-length mask */
+        $lines = array_filter(explode("\n", $this->streamContents()));
+
+        self::assertStringContainsString('"password":"********"', $lines[0]);
+        self::assertStringContainsString('"password":"********"', $lines[1]);
+    }
+
+    public function testLogWithPasswordRedactionWithCustomFixedMaskLength(): void
+    {
+        /** @Given a structured logger with password redaction configured with a custom fixed mask length */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'auth-service')
+            ->withRedactions(PasswordRedaction::from(fields: ['password'], fixedMaskLength: 12))
+            ->build();
+
+        /** @When logging with a password field */
+        $logger->info(message: 'login.attempt', context: ['password' => 'abc']);
+
+        /** @Then the mask should have exactly 12 asterisks */
+        $output = $this->streamContents();
+
+        self::assertStringContainsString('"password":"************"', $output);
+        self::assertStringNotContainsString('abc', $output);
     }
 
     public function testLogWithNameRedaction(): void
