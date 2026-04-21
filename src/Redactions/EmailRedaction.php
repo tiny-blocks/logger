@@ -18,16 +18,16 @@ final readonly class EmailRedaction implements Redaction
         $this->redactor = new Redactor(
             fields: $fields,
             maskingFunction: static function (string $value) use ($visiblePrefixLength): string {
-                $atPosition = strpos($value, '@');
+                $atPosition = mb_strpos($value, '@', 0, 'UTF-8');
 
                 if ($atPosition === false) {
-                    return str_repeat('*', strlen($value));
+                    return str_repeat('*', mb_strlen($value, 'UTF-8'));
                 }
 
-                $domain = substr($value, $atPosition);
-                $localPart = substr($value, 0, $atPosition);
-                $maskedSuffix = str_repeat('*', max(0, strlen($localPart) - $visiblePrefixLength));
-                $visiblePrefix = substr($localPart, 0, $visiblePrefixLength);
+                $domain = mb_substr($value, $atPosition, null, 'UTF-8');
+                $localPart = mb_substr($value, 0, $atPosition, 'UTF-8');
+                $maskedSuffix = str_repeat('*', max(0, mb_strlen($localPart, 'UTF-8') - $visiblePrefixLength));
+                $visiblePrefix = mb_substr($localPart, 0, $visiblePrefixLength, 'UTF-8');
 
                 return sprintf('%s%s%s', $visiblePrefix, $maskedSuffix, $domain);
             }
