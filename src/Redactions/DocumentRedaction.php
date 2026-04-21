@@ -18,8 +18,13 @@ final readonly class DocumentRedaction implements Redaction
         $this->redactor = new Redactor(
             fields: $fields,
             maskingFunction: static function (string $value) use ($visibleSuffixLength): string {
-                $maskedLength = max(0, strlen($value) - $visibleSuffixLength);
-                return sprintf('%s%s', str_repeat('*', $maskedLength), substr($value, -$visibleSuffixLength));
+                $length = mb_strlen($value, 'UTF-8');
+                $maskedLength = max(0, $length - $visibleSuffixLength);
+                return sprintf(
+                    '%s%s',
+                    str_repeat('*', $maskedLength),
+                    mb_substr($value, -$visibleSuffixLength, null, 'UTF-8')
+                );
             }
         );
     }

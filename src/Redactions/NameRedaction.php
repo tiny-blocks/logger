@@ -18,8 +18,12 @@ final readonly class NameRedaction implements Redaction
         $this->redactor = new Redactor(
             fields: $fields,
             maskingFunction: static function (string $value) use ($visiblePrefixLength): string {
-                $maskedLength = max(0, strlen($value) - $visiblePrefixLength);
-                return sprintf('%s%s', substr($value, 0, $visiblePrefixLength), str_repeat('*', $maskedLength));
+                $maskedLength = max(0, mb_strlen($value, 'UTF-8') - $visiblePrefixLength);
+                return sprintf(
+                    '%s%s',
+                    mb_substr($value, 0, $visiblePrefixLength, 'UTF-8'),
+                    str_repeat('*', $maskedLength)
+                );
             }
         );
     }

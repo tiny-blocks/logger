@@ -6,6 +6,7 @@ namespace TinyBlocks\Logger\Internal;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use JsonException;
 use TinyBlocks\Logger\LogContext;
 use TinyBlocks\Logger\LogLevel;
 
@@ -13,6 +14,7 @@ final readonly class LogFormatter
 {
     private const string DEFAULT_TEMPLATE = "%s component=%s correlation_id=%s level=%s key=%s data=%s\n";
     private const string EMPTY_CORRELATION_ID = '';
+    private const string ENCODING_FAILURE_PAYLOAD = '{"error":"encoding_failed"}';
 
     private function __construct(private string $component, private string $template)
     {
@@ -31,17 +33,30 @@ final readonly class LogFormatter
     public function format(string $key, array $data, LogLevel $level, ?LogContext $context = null): string
     {
         $timestamp = new DateTimeImmutable()->format(DateTimeInterface::ATOM);
-        $encodedData = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $correlationId = is_null($context) ? self::EMPTY_CORRELATION_ID : $context->correlationId;
+
+        try {
+            $encodedData = json_encode(
+                $data,
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+            );
+        } catch (JsonException) {
+            $encodedData = self::ENCODING_FAILURE_PAYLOAD;
+        }
 
         return sprintf(
             $this->template,
             $timestamp,
-            $this->component,
-            $correlationId,
+            self::sanitize(value: $this->component),
+            self::sanitize(value: $correlationId),
             $level->value,
-            $key,
+            self::sanitize(value: $key),
             $encodedData
         );
+    }
+
+    private static function sanitize(string $value): string
+    {
+        return strtr($value, ["\n" => '\\n', "\r" => '\\r', "\t" => '\\t']);
     }
 }

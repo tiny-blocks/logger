@@ -119,6 +119,36 @@ final class StructuredLoggerTest extends TestCase
         self::assertStringContainsString('data=[]', $this->streamContents());
     }
 
+    public function testLogReplacesUnencodableDataWithEncodingFailurePayload(): void
+    {
+        /** @Given a structured logger */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'broken-json-service')
+            ->build();
+
+        /** @When logging a payload that json_encode cannot serialize */
+        $logger->info(message: 'bad.payload', context: ['value' => "\xB1\x31"]);
+
+        /** @Then the data section should contain the encoding failure payload */
+        self::assertStringContainsString('data={"error":"encoding_failed"}', $this->streamContents());
+    }
+
+    public function testLogEscapesControlCharactersInMessageKey(): void
+    {
+        /** @Given a structured logger */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'injection-test')
+            ->build();
+
+        /** @When logging with a message key that contains a newline */
+        $logger->info(message: "safe\nkey");
+
+        /** @Then newline characters should appear escaped in the log line */
+        self::assertStringContainsString('key=safe\\nkey', $this->streamContents());
+    }
+
     public function testLogWithoutContextHasEmptyCorrelationId(): void
     {
         /** @Given a structured logger without any context */
@@ -354,14 +384,14 @@ final class StructuredLoggerTest extends TestCase
             ->withRedactions(EmailRedaction::default())
             ->build();
 
-        /** @When logging with an invalid email (no @ sign) */
-        $logger->info(message: 'user.attempt', context: ['email' => 'invalidemail']);
+        /** @When logging with a multibyte value missing an @ sign */
+        $logger->info(message: 'user.attempt', context: ['email' => 'çãoabc']);
 
-        /** @Then the entire value should be fully masked */
+        /** @Then the mask length matches the number of characters, not bytes */
         $output = $this->streamContents();
 
-        self::assertStringContainsString('************', $output);
-        self::assertStringNotContainsString('invalidemail', $output);
+        self::assertStringContainsString('"email":"******"', $output);
+        self::assertStringNotContainsString('çãoabc', $output);
     }
 
     public function testLogWithEmailRedactionWhenLocalPartIsShorterThanVisibleLength(): void
@@ -1022,6 +1052,216 @@ final class StructuredLoggerTest extends TestCase
         self::assertStringContainsString('jo**@example.com', $output);
         self::assertStringNotContainsString('12345678900', $output);
         self::assertStringNotContainsString('john@example.com', $output);
+    }
+
+    public function testLogWithNameRedactionPreservesMultibyteCharacterBoundaries(): void
+    {
+        /** @Given a structured logger with name redaction and a multibyte value */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'profile-service')
+            ->withRedactions(NameRedaction::from(fields: ['name'], visiblePrefixLength: 2))
+            ->build();
+
+        /** @When logging with a name that contains a multibyte character */
+        $logger->info(message: 'profile.viewed', context: ['name' => 'Ümit']);
+
+        /** @Then the visible prefix should contain whole characters, not bytes */
+        self::assertStringContainsString('"name":"Üm**"', $this->streamContents());
+    }
+
+    public function testLogWithPhoneRedactionPreservesMultibyteCharacterBoundaries(): void
+    {
+        /** @Given a structured logger with phone redaction and a multibyte suffix */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'contact-service')
+            ->withRedactions(PhoneRedaction::from(fields: ['phone'], visibleSuffixLength: 3))
+            ->build();
+
+        /** @When logging with a phone that ends with a multibyte character */
+        $logger->info(message: 'contact.updated', context: ['phone' => '+5511ÿÿÿ']);
+
+        /** @Then the visible suffix should contain whole characters, not bytes */
+        self::assertStringContainsString('"phone":"*****ÿÿÿ"', $this->streamContents());
+    }
+
+    public function testLogWithDocumentRedactionPreservesMultibyteCharacterBoundaries(): void
+    {
+        /** @Given a structured logger with document redaction and a multibyte suffix */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'kyc-service')
+            ->withRedactions(DocumentRedaction::from(fields: ['document'], visibleSuffixLength: 3))
+            ->build();
+
+        /** @When logging with a document that ends with multibyte characters */
+        $logger->info(message: 'kyc.check', context: ['document' => '1234ção']);
+
+        /** @Then the visible suffix should contain whole characters, not bytes */
+        self::assertStringContainsString('"document":"****ção"', $this->streamContents());
+    }
+
+    public function testLogWithEmailRedactionPreservesMultibyteCharacterBoundariesInLocalPart(): void
+    {
+        /** @Given a structured logger with email redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(EmailRedaction::from(fields: ['email'], visiblePrefixLength: 2))
+            ->build();
+
+        /** @When logging with an email whose local part contains multibyte characters */
+        $logger->info(message: 'user.registered', context: ['email' => 'Ümit@example.com']);
+
+        /** @Then the prefix is taken from characters, not bytes */
+        self::assertStringContainsString('"email":"Üm**@example.com"', $this->streamContents());
+    }
+
+    public function testLogWithEmailRedactionStartsAtSignSearchFromTheBeginning(): void
+    {
+        /** @Given a structured logger with email redaction */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'user-service')
+            ->withRedactions(EmailRedaction::from(fields: ['email'], visiblePrefixLength: 2))
+            ->build();
+
+        /** @When logging with an email whose @ sign is at position zero */
+        $logger->info(message: 'user.registered', context: ['email' => '@example.com']);
+
+        /** @Then the result keeps the @ at the start because the search begins at offset zero */
+        self::assertStringContainsString('"email":"@example.com"', $this->streamContents());
+    }
+
+    public function testAppliesAllRedactionsRecursivelyAcrossNestedLevels(): void
+    {
+        /** @Given a StructuredLogger configured with default redactions for password, email, document, phone, and name */
+        $logger = StructuredLogger::create()
+            ->withStream(stream: $this->stream)
+            ->withComponent(component: 'test')
+            ->withRedactions(
+                PasswordRedaction::default(),
+                EmailRedaction::default(),
+                DocumentRedaction::default(),
+                PhoneRedaction::default(),
+                NameRedaction::default()
+            )
+            ->build();
+
+        /** @When the logger receives an info entry with the deeply nested context */
+        $logger->info(message: 'order_processed', context: [
+            'order_id' => 'ORD-12345',
+            'customer' => [
+                'name'     => 'Maria Silva',
+                'email'    => 'maria.silva@example.com',
+                'document' => '12345678900',
+                'phone'    => '+5511999998888',
+                'address'  => [
+                    'street'  => 'Rua Example, 123',
+                    'city'    => 'São Paulo',
+                    'contact' => [
+                        'phone' => '+5511888887777',
+                        'email' => 'contact@example.com'
+                    ]
+                ]
+            ],
+            'payment'  => [
+                'method'      => 'credit_card',
+                'credentials' => [
+                    'password' => 'super-secret-123',
+                    'token'    => 'not-to-be-redacted'
+                ]
+            ],
+            'items'    => [
+                ['name' => 'Item A', 'price' => 100.00],
+                ['name' => 'Item B', 'price' => 50.00]
+            ],
+            'metadata' => [
+                'source' => 'mobile_app',
+                'nested' => [
+                    'deep' => [
+                        'deeper' => [
+                            'email'    => 'deep@example.com',
+                            'password' => 'deep-secret'
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+
+        /** @Then all sensitive fields are redacted regardless of nesting depth,
+         *        and non-sensitive fields pass through unchanged */
+        $output = $this->streamContents();
+        $decoded = json_decode(explode(' data=', $output)[1], true);
+
+        self::assertSame('ORD-12345', $decoded['order_id']);
+
+        self::assertStringStartsWith('Ma', $decoded['customer']['name']);
+        self::assertStringContainsString('*', $decoded['customer']['name']);
+        self::assertStringNotContainsString('Maria Silva', $decoded['customer']['name']);
+
+        self::assertStringStartsWith('ma', $decoded['customer']['email']);
+        self::assertStringContainsString('*', $decoded['customer']['email']);
+        self::assertStringContainsString('@example.com', $decoded['customer']['email']);
+        self::assertStringNotContainsString('maria.silva@example.com', $decoded['customer']['email']);
+
+        self::assertStringEndsWith('900', $decoded['customer']['document']);
+        self::assertStringContainsString('*', $decoded['customer']['document']);
+        self::assertStringNotContainsString('12345678900', $decoded['customer']['document']);
+
+        self::assertStringEndsWith('8888', $decoded['customer']['phone']);
+        self::assertStringContainsString('*', $decoded['customer']['phone']);
+        self::assertStringNotContainsString('+5511999998888', $decoded['customer']['phone']);
+
+        /** @And non-sensitive address fields pass through unchanged */
+        self::assertSame('Rua Example, 123', $decoded['customer']['address']['street']);
+        self::assertSame('São Paulo', $decoded['customer']['address']['city']);
+
+        /** @And sensitive fields at nesting level 3 are also redacted */
+        self::assertStringEndsWith('7777', $decoded['customer']['address']['contact']['phone']);
+        self::assertStringContainsString('*', $decoded['customer']['address']['contact']['phone']);
+        self::assertStringNotContainsString('+5511888887777', $decoded['customer']['address']['contact']['phone']);
+
+        self::assertStringStartsWith('co', $decoded['customer']['address']['contact']['email']);
+        self::assertStringContainsString('*', $decoded['customer']['address']['contact']['email']);
+        self::assertStringContainsString('@example.com', $decoded['customer']['address']['contact']['email']);
+        self::assertStringNotContainsString('contact@example.com', $decoded['customer']['address']['contact']['email']);
+
+        /** @And payment fields are handled according to their redaction rules */
+        self::assertSame('credit_card', $decoded['payment']['method']);
+
+        self::assertStringContainsString('*', $decoded['payment']['credentials']['password']);
+        self::assertStringNotContainsString('super-secret-123', $decoded['payment']['credentials']['password']);
+
+        self::assertSame('not-to-be-redacted', $decoded['payment']['credentials']['token']);
+
+        /** @And items name fields are masked because NameRedaction matches the literal key 'name' */
+        self::assertStringContainsString('*', $decoded['items'][0]['name']);
+        self::assertStringNotContainsString('Item A', $decoded['items'][0]['name']);
+        self::assertSame(100, $decoded['items'][0]['price']);
+
+        self::assertStringContainsString('*', $decoded['items'][1]['name']);
+        self::assertStringNotContainsString('Item B', $decoded['items'][1]['name']);
+        self::assertSame(50, $decoded['items'][1]['price']);
+
+        /** @And non-sensitive metadata fields pass through unchanged */
+        self::assertSame('mobile_app', $decoded['metadata']['source']);
+
+        /** @And sensitive fields at nesting level 4 are also redacted */
+        self::assertStringStartsWith('de', $decoded['metadata']['nested']['deep']['deeper']['email']);
+        self::assertStringContainsString('*', $decoded['metadata']['nested']['deep']['deeper']['email']);
+        self::assertStringContainsString('@example.com', $decoded['metadata']['nested']['deep']['deeper']['email']);
+        self::assertStringNotContainsString(
+            'deep@example.com',
+            $decoded['metadata']['nested']['deep']['deeper']['email']
+        );
+
+        self::assertStringContainsString('*', $decoded['metadata']['nested']['deep']['deeper']['password']);
+        self::assertStringNotContainsString(
+            'deep-secret',
+            $decoded['metadata']['nested']['deep']['deeper']['password']
+        );
     }
 
     private function streamContents(): string
