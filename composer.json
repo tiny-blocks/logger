@@ -1,6 +1,6 @@
 {
     "name": "tiny-blocks/logger",
-    "description": "Provides structured logging with support for correlation tracking and configurable sensitive data redaction.",
+    "description": "Emits PSR-3 structured logs for PHP, with correlation tracking and configurable sensitive data redaction.",
     "license": "MIT",
     "type": "library",
     "authors": [

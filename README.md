@@ -16,10 +16,9 @@
 
 ## Overview
 
-Provides structured logging with support for correlation tracking and configurable sensitive data redaction.
-
-Built on top of [PSR-3](https://www.php-fig.org/psr/psr-3), the library can be used anywhere a `LoggerInterface` is
-expected.
+Emits PSR-3 structured logs for PHP, with each entry carrying timestamp, component, correlation id, level, and a
+structured data payload. Supports pluggable redactions for sensitive fields such as passwords, emails, phone numbers,
+and identity documents. Built for consumption by log aggregators and SIEM pipelines in production environments.
 
 <div id='installation'></div>
 
