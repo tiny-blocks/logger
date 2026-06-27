@@ -1,14 +1,23 @@
 # Logger
 
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/tiny-blocks/logger/blob/main/LICENSE)
 
 * [Overview](#overview)
 * [Installation](#installation)
 * [How to use](#how-to-use)
-    * [Basic logging](#basic-logging)
-    * [Correlation tracking](#correlation-tracking)
-    * [Sensitive data redaction](#sensitive-data-redaction)
-    * [Custom log template](#custom-log-template)
+    + [Basic logging](#basic-logging)
+    + [Correlation tracking](#correlation-tracking)
+        - [At creation time](#at-creation-time)
+        - [Derived from an existing logger](#derived-from-an-existing-logger)
+    + [Sensitive data redaction](#sensitive-data-redaction)
+        - [Document redaction](#document-redaction)
+        - [Email redaction](#email-redaction)
+        - [Phone redaction](#phone-redaction)
+        - [Password redaction](#password-redaction)
+        - [Name redaction](#name-redaction)
+        - [Composing multiple redactions](#composing-multiple-redactions)
+        - [Custom redaction](#custom-redaction)
+    + [Custom log template](#custom-log-template)
 * [License](#license)
 * [Contributing](#contributing)
 
@@ -38,6 +47,10 @@ Create a logger with `StructuredLogger::create()` and use the fluent builder to 
 supported: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, and `emergency`.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 
 $logger = StructuredLogger::create()
@@ -61,6 +74,10 @@ mutated.
 #### At creation time
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\LogContext;
 use TinyBlocks\Logger\StructuredLogger;
 
@@ -75,6 +92,10 @@ $logger->info(message: 'payment.started', context: ['amount' => 100.50]);
 #### Derived from an existing logger
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\LogContext;
 use TinyBlocks\Logger\StructuredLogger;
 
@@ -97,6 +118,10 @@ Each strategy accepts multiple field name variations and a configurable masking 
 Masks all characters except the last N (default: 3).
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\DocumentRedaction;
 
@@ -112,6 +137,10 @@ $logger->info(message: 'kyc.verified', context: ['document' => '12345678900']);
 With custom fields and visible length:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\Redactions\DocumentRedaction;
 
 DocumentRedaction::from(fields: ['cpf', 'cnpj'], visibleSuffixLength: 5);
@@ -124,6 +153,10 @@ DocumentRedaction::from(fields: ['cpf', 'cnpj'], visibleSuffixLength: 5);
 Preserves the first N characters of the local part (default: 2) and the full domain.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\EmailRedaction;
 
@@ -139,6 +172,10 @@ $logger->info(message: 'user.registered', context: ['email' => 'john@example.com
 With custom fields:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\Redactions\EmailRedaction;
 
 EmailRedaction::from(fields: ['email', 'contact_email', 'recoveryEmail'], visiblePrefixLength: 2);
@@ -149,6 +186,10 @@ EmailRedaction::from(fields: ['email', 'contact_email', 'recoveryEmail'], visibl
 Masks all characters except the last N (default: 4).
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\PhoneRedaction;
 
@@ -164,6 +205,10 @@ $logger->info(message: 'sms.sent', context: ['phone' => '+5511999887766']);
 With custom fields:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\Redactions\PhoneRedaction;
 
 PhoneRedaction::from(fields: ['phone', 'mobile', 'whatsapp'], visibleSuffixLength: 4);
@@ -175,6 +220,10 @@ Masks the entire value with a fixed-length mask (default: 8 characters). The ori
 in the output, preventing information leakage about password size.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\PasswordRedaction;
 
@@ -193,6 +242,10 @@ $logger->info(message: 'login.attempt', context: ['password' => '123']);
 With custom fields and fixed mask length:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\Redactions\PasswordRedaction;
 
 PasswordRedaction::from(fields: ['password', 'secret', 'token'], fixedMaskLength: 12);
@@ -206,6 +259,10 @@ PasswordRedaction::from(fields: ['password', 'secret', 'token'], fixedMaskLength
 Preserves the first N characters (default: 2) and masks the rest.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\NameRedaction;
 
@@ -221,6 +278,10 @@ $logger->info(message: 'user.created', context: ['name' => 'Gustavo']);
 With custom fields and visible length:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\Redactions\NameRedaction;
 
 NameRedaction::from(fields: ['name', 'full_name', 'firstName'], visiblePrefixLength: 3);
@@ -232,6 +293,10 @@ NameRedaction::from(fields: ['name', 'full_name', 'firstName'], visiblePrefixLen
 #### Composing multiple redactions
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 use TinyBlocks\Logger\Redactions\DocumentRedaction;
 use TinyBlocks\Logger\Redactions\EmailRedaction;
@@ -271,24 +336,28 @@ $logger->info(message: 'user.registered', context: [
 Implement the `Redaction` interface to create your own strategy:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\Redaction;
 
 final readonly class TokenRedaction implements Redaction
 {
-    public function redact(array $data): array
+    public function redact(array $payload): array
     {
-        foreach ($data as $key => $value) {
+        foreach ($payload as $key => $value) {
             if (is_array($value)) {
-                $data[$key] = $this->redact(data: $value);
+                $payload[$key] = $this->redact(payload: $value);
                 continue;
             }
 
             if ($key === 'token' && is_string($value)) {
-                $data[$key] = '***REDACTED***';
+                $payload[$key] = '***REDACTED***';
             }
         }
 
-        return $data;
+        return $payload;
     }
 }
 ```
@@ -296,7 +365,11 @@ final readonly class TokenRedaction implements Redaction
 Then add it to the logger:
 
 ```php
-use TinyBlocks\Logger\StructuredLogger; 
+<?php
+
+declare(strict_types=1);
+
+use TinyBlocks\Logger\StructuredLogger;
 
 $logger = StructuredLogger::create()
     ->withComponent(component: 'auth-service')
@@ -319,6 +392,10 @@ You can replace it with any `sprintf` compatible template that accepts six strin
 correlationId, level, key, data):
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use TinyBlocks\Logger\StructuredLogger;
 
 $logger = StructuredLogger::create()

@@ -7,13 +7,16 @@ namespace TinyBlocks\Logger\Internal\Redactor;
 use TinyBlocks\Collection\Collection;
 use TinyBlocks\Logger\Redaction;
 
+/**
+ * @extends Collection<Redaction>
+ */
 final class Redactions extends Collection
 {
-    public function applyTo(array $data): array
+    public function applyTo(array $payload): array
     {
         return $this->reduce(
-            accumulator: static fn(array $carry, Redaction $redaction): array => $redaction->redact(data: $carry),
-            initial: $data
+            accumulator: static fn(array $carry, Redaction $redaction): array => $redaction->redact(payload: $carry),
+            initial: $payload
         );
     }
 }

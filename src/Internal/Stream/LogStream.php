@@ -6,7 +6,6 @@ namespace TinyBlocks\Logger\Internal\Stream;
 
 final readonly class LogStream
 {
-    /** @var resource */
     private mixed $resource;
 
     private function __construct(mixed $resource)
@@ -16,7 +15,7 @@ final readonly class LogStream
 
     public static function from(mixed $resource = null): LogStream
     {
-        if ($resource !== null) {
+        if (!is_null($resource)) {
             return new LogStream(resource: $resource);
         }
 

@@ -7,6 +7,9 @@ namespace TinyBlocks\Logger\Redactions;
 use TinyBlocks\Logger\Internal\Redactor\Redactor;
 use TinyBlocks\Logger\Redaction;
 
+/**
+ * Masks document field values, keeping a configurable number of trailing characters visible.
+ */
 final readonly class DocumentRedaction implements Redaction
 {
     private const int DEFAULT_VISIBLE_SUFFIX_LENGTH = 3;
@@ -20,8 +23,10 @@ final readonly class DocumentRedaction implements Redaction
             maskingFunction: static function (string $value) use ($visibleSuffixLength): string {
                 $length = mb_strlen($value, 'UTF-8');
                 $maskedLength = max(0, $length - $visibleSuffixLength);
+                $template = '%s%s';
+
                 return sprintf(
-                    '%s%s',
+                    $template,
                     str_repeat('*', $maskedLength),
                     mb_substr($value, -$visibleSuffixLength, null, 'UTF-8')
                 );
@@ -29,18 +34,30 @@ final readonly class DocumentRedaction implements Redaction
         );
     }
 
+    /**
+     * Creates a DocumentRedaction from the fields to mask and the number of visible trailing characters.
+     *
+     * @param string[] $fields The field names whose values are masked.
+     * @param int $visibleSuffixLength The number of trailing characters left visible.
+     * @return DocumentRedaction The created instance.
+     */
     public static function from(array $fields, int $visibleSuffixLength): DocumentRedaction
     {
         return new DocumentRedaction(fields: $fields, visibleSuffixLength: $visibleSuffixLength);
     }
 
+    /**
+     * Builds a DocumentRedaction with the default document field and visible suffix length.
+     *
+     * @return DocumentRedaction The created instance.
+     */
     public static function default(): DocumentRedaction
     {
-        return self::from(fields: ['document'], visibleSuffixLength: self::DEFAULT_VISIBLE_SUFFIX_LENGTH);
+        return DocumentRedaction::from(fields: ['document'], visibleSuffixLength: self::DEFAULT_VISIBLE_SUFFIX_LENGTH);
     }
 
-    public function redact(array $data): array
+    public function redact(array $payload): array
     {
-        return $this->redactor->redact(data: $data);
+        return $this->redactor->redact(payload: $payload);
     }
 }
