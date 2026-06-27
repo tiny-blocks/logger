@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace TinyBlocks\Logger;
+namespace TinyBlocks\Logger\Internal;
 
 enum LogLevel: string
 {
     case INFO = 'INFO';
-    case ERROR = 'ERROR';
-    case DEBUG = 'DEBUG';
     case ALERT = 'ALERT';
+    case DEBUG = 'DEBUG';
+    case ERROR = 'ERROR';
     case NOTICE = 'NOTICE';
     case WARNING = 'WARNING';
     case CRITICAL = 'CRITICAL';

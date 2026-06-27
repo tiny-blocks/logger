@@ -7,6 +7,9 @@ namespace TinyBlocks\Logger\Redactions;
 use TinyBlocks\Logger\Internal\Redactor\Redactor;
 use TinyBlocks\Logger\Redaction;
 
+/**
+ * Masks phone field values, keeping a configurable number of trailing characters visible.
+ */
 final readonly class PhoneRedaction implements Redaction
 {
     private const int DEFAULT_VISIBLE_SUFFIX_LENGTH = 4;
@@ -20,8 +23,10 @@ final readonly class PhoneRedaction implements Redaction
             maskingFunction: static function (string $value) use ($visibleSuffixLength): string {
                 $length = mb_strlen($value, 'UTF-8');
                 $maskedLength = max(0, $length - $visibleSuffixLength);
+                $template = '%s%s';
+
                 return sprintf(
-                    '%s%s',
+                    $template,
                     str_repeat('*', $maskedLength),
                     mb_substr($value, -$visibleSuffixLength, null, 'UTF-8')
                 );
@@ -29,18 +34,30 @@ final readonly class PhoneRedaction implements Redaction
         );
     }
 
+    /**
+     * Creates a PhoneRedaction from the fields to mask and the number of visible trailing characters.
+     *
+     * @param string[] $fields The field names whose values are masked.
+     * @param int $visibleSuffixLength The number of trailing characters left visible.
+     * @return PhoneRedaction The created instance.
+     */
     public static function from(array $fields, int $visibleSuffixLength): PhoneRedaction
     {
         return new PhoneRedaction(fields: $fields, visibleSuffixLength: $visibleSuffixLength);
     }
 
+    /**
+     * Builds a PhoneRedaction with the default phone field and visible suffix length.
+     *
+     * @return PhoneRedaction The created instance.
+     */
     public static function default(): PhoneRedaction
     {
-        return self::from(fields: ['phone'], visibleSuffixLength: self::DEFAULT_VISIBLE_SUFFIX_LENGTH);
+        return PhoneRedaction::from(fields: ['phone'], visibleSuffixLength: self::DEFAULT_VISIBLE_SUFFIX_LENGTH);
     }
 
-    public function redact(array $data): array
+    public function redact(array $payload): array
     {
-        return $this->redactor->redact(data: $data);
+        return $this->redactor->redact(payload: $payload);
     }
 }

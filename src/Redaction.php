@@ -13,10 +13,10 @@ namespace TinyBlocks\Logger;
 interface Redaction
 {
     /**
-     * Redacts sensitive data from the given array and returns the modified data.
+     * Redacts sensitive data from the given payload and returns the modified payload.
      *
-     * @param array $data The data to be redacted.
-     * @return array The redacted data.
+     * @param array<string, mixed> $payload The payload to be redacted.
+     * @return array<string, mixed> The redacted payload.
      */
-    public function redact(array $data): array;
+    public function redact(array $payload): array;
 }

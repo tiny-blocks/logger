@@ -1,9 +1,52 @@
 parameters:
-  paths:
-    - src
-  level: 9
-  tmpDir: report/phpstan
-  ignoreErrors:
-    - '#mixed#'
-    - '#type specified in iterable type array#'
-  reportUnmatchedIgnoredErrors: false
+    level: max
+    paths:
+        - src
+        - tests
+    reportUnmatchedIgnoredErrors: true
+    ignoreErrors:
+        # PSR-3 LoggerInterface::log() types $level as mixed; the library casts it to string at that
+        # boundary to resolve the log level. The mixed origin is the PSR contract, not the library.
+        - identifier: cast.string
+          path: src/StructuredLogger.php
+        # Internal collaborators and private factory constructors carry plain array shapes. Native PHP
+        # cannot annotate the value type, and PHPDoc is prohibited on Internal types and constructors.
+        - identifier: missingType.iterableValue
+          path: src/Internal/LogFormatter.php
+        - identifier: missingType.iterableValue
+          path: src/Internal/Redactor/Redactions.php
+        - identifier: missingType.iterableValue
+          path: src/Internal/Redactor/Redactor.php
+        - identifier: missingType.iterableValue
+          path: src/Redactions/*.php
+        - identifier: missingType.iterableValue
+          path: src/StructuredLoggerBuilder.php
+        # The recursive redactor and the reduce pipeline pass a plain array into the
+        # array<string, mixed> contract of Redaction::redact; the values originate as mixed log
+        # context, an irreducible boundary shape inside Internal collaborators.
+        - identifier: argument.type
+          path: src/Internal/Redactor/Redactions.php
+        - identifier: argument.type
+          path: src/Internal/Redactor/Redactor.php
+        # LogStream wraps a stream resource the language can only promote as mixed; fwrite then
+        # receives that mixed handle. Internal collaborator with intrinsic resource state.
+        - identifier: argument.type
+          path: src/Internal/Stream/LogStream.php
+        # The builder accumulates Redaction instances in a variadic pass-through array and spreads
+        # them into StructuredLogger::from(); the element type cannot be annotated on the promoted
+        # constructor parameter without prohibited PHPDoc.
+        - identifier: argument.type
+          path: src/StructuredLoggerBuilder.php
+        # json_decode() returns mixed, so the deep recursive redaction test array-accesses a mixed
+        # value when reading the decoded payload. Descriptive PHPDoc is prohibited in tests/, so the
+        # irreducible mixed-origin offset access is suppressed for this file only.
+        - identifier: offsetAccess.nonOffsetAccessible
+          path: tests/StructuredLoggerTest.php
+        # The mixed values read from that decoded payload feed string-typed PHPUnit assertion
+        # parameters (assertStringStartsWith, assertStringContainsString, ...). Same mixed origin.
+        - identifier: argument.type
+          path: tests/StructuredLoggerTest.php
+        # The password data provider returns a list of single-argument rows. Its iterable value type
+        # cannot be expressed without PHPDoc, which tests/ forbids, so it is suppressed for this file.
+        - identifier: missingType.iterableValue
+          path: tests/StructuredLoggerTest.php
