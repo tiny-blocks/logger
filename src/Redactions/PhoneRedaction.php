@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace TinyBlocks\Logger\Redactions;
 
-use TinyBlocks\Logger\Internal\Redactor\Redactor;
+use TinyBlocks\Logger\Exceptions\NegativeVisibleLength;
+use TinyBlocks\Logger\Mask;
 use TinyBlocks\Logger\Redaction;
+use TinyBlocks\Logger\Redactions\Rules\VisibleEdgesRedaction;
 
 /**
  * Masks phone field values, keeping a configurable number of trailing characters visible.
@@ -14,32 +16,24 @@ final readonly class PhoneRedaction implements Redaction
 {
     private const int DEFAULT_VISIBLE_SUFFIX_LENGTH = 4;
 
-    private Redactor $redactor;
+    private Redaction $redactor;
 
     private function __construct(array $fields, int $visibleSuffixLength)
     {
-        $this->redactor = new Redactor(
+        $this->redactor = VisibleEdgesRedaction::from(
+            mask: Mask::proportional(),
             fields: $fields,
-            maskingFunction: static function (string $value) use ($visibleSuffixLength): string {
-                $length = mb_strlen($value, 'UTF-8');
-                $maskedLength = max(0, $length - $visibleSuffixLength);
-                $template = '%s%s';
-
-                return sprintf(
-                    $template,
-                    str_repeat('*', $maskedLength),
-                    mb_substr($value, -$visibleSuffixLength, null, 'UTF-8')
-                );
-            }
+            visibleSuffixLength: $visibleSuffixLength
         );
     }
 
     /**
      * Creates a PhoneRedaction from the fields to mask and the number of visible trailing characters.
      *
-     * @param string[] $fields The field names whose values are masked.
+     * @param string[] $fields The field names whose values are masked, wildcards accepted.
      * @param int $visibleSuffixLength The number of trailing characters left visible.
      * @return PhoneRedaction The created instance.
+     * @throws NegativeVisibleLength If the visible suffix length is negative.
      */
     public static function from(array $fields, int $visibleSuffixLength): PhoneRedaction
     {

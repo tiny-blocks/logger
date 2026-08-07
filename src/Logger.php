@@ -19,10 +19,11 @@ interface Logger extends LoggerInterface
     /**
      * Creates a new Logger instance bound to the given correlation context.
      *
-     * The original instance remains unchanged.
+     * <p>The original instance remains unchanged. An implementation returns its own type, so
+     * declaring the concrete class name is the expected form.</p>
      *
      * @param LogContext $context The log context containing the correlation ID.
-     * @return static A new Logger instance bound to the given context.
+     * @return Logger A new Logger instance bound to the given context.
      */
-    public function withContext(LogContext $context): static;
+    public function withContext(LogContext $context): Logger;
 }
