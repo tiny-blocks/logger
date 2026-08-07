@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace TinyBlocks\Logger\Redactions;
 
-use TinyBlocks\Logger\Internal\Redactor\Redactor;
+use TinyBlocks\Logger\Mask;
 use TinyBlocks\Logger\Redaction;
+use TinyBlocks\Logger\Redactions\Rules\FullMaskRedaction;
 
 /**
  * Masks password field values entirely with a fixed-length mask.
@@ -14,20 +15,17 @@ final readonly class PasswordRedaction implements Redaction
 {
     private const int DEFAULT_FIXED_MASK_LENGTH = 8;
 
-    private Redactor $redactor;
+    private Redaction $redactor;
 
     private function __construct(array $fields, int $fixedMaskLength)
     {
-        $this->redactor = new Redactor(
-            fields: $fields,
-            maskingFunction: static fn(): string => str_repeat('*', $fixedMaskLength)
-        );
+        $this->redactor = FullMaskRedaction::from(mask: Mask::fixed(length: $fixedMaskLength), fields: $fields);
     }
 
     /**
      * Creates a PasswordRedaction from the fields to mask and the fixed mask length.
      *
-     * @param string[] $fields The field names whose values are masked.
+     * @param string[] $fields The field names whose values are masked, wildcards accepted.
      * @param int $fixedMaskLength The fixed number of mask characters emitted.
      * @return PasswordRedaction The created instance.
      */

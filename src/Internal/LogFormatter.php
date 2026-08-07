@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use JsonException;
 use TinyBlocks\Logger\LogContext;
+use TinyBlocks\Logger\LogLevel;
 
 final readonly class LogFormatter
 {
@@ -42,7 +43,7 @@ final readonly class LogFormatter
         try {
             $encodedData = json_encode(
                 $payload,
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+                (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
             );
         } catch (JsonException) {
             $encodedData = self::ENCODING_FAILURE_PAYLOAD;

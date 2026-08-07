@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger;
 
 /**
- * Fluent builder that assembles a StructuredLogger from a stream, context, template, component, and redactions.
+ * Fluent builder that assembles a StructuredLogger from a stream, context, template, component,
+ * minimum level, and redactions.
  */
 final readonly class StructuredLoggerBuilder
 {
@@ -14,12 +15,14 @@ final readonly class StructuredLoggerBuilder
         private ?LogContext $context = null,
         private string $template = '',
         private string $component = '',
-        private array $redactions = []
+        private array $redactions = [],
+        private LogLevel $minimumLevel = LogLevel::DEBUG
     ) {
     }
 
     /**
-     * Builds a StructuredLogger from the configured stream, context, template, component, and redactions.
+     * Builds a StructuredLogger from the configured stream, context, template, component, minimum
+     * level, and redactions.
      *
      * @return StructuredLogger The configured logger instance.
      */
@@ -30,6 +33,7 @@ final readonly class StructuredLoggerBuilder
             $this->context,
             $this->template,
             $this->component,
+            $this->minimumLevel,
             ...$this->redactions
         );
     }
@@ -47,7 +51,8 @@ final readonly class StructuredLoggerBuilder
             context: $this->context,
             template: $this->template,
             component: $this->component,
-            redactions: $this->redactions
+            redactions: $this->redactions,
+            minimumLevel: $this->minimumLevel
         );
     }
 
@@ -64,7 +69,8 @@ final readonly class StructuredLoggerBuilder
             context: $context,
             template: $this->template,
             component: $this->component,
-            redactions: $this->redactions
+            redactions: $this->redactions,
+            minimumLevel: $this->minimumLevel
         );
     }
 
@@ -81,7 +87,8 @@ final readonly class StructuredLoggerBuilder
             context: $this->context,
             template: $template,
             component: $this->component,
-            redactions: $this->redactions
+            redactions: $this->redactions,
+            minimumLevel: $this->minimumLevel
         );
     }
 
@@ -98,7 +105,8 @@ final readonly class StructuredLoggerBuilder
             context: $this->context,
             template: $this->template,
             component: $component,
-            redactions: $this->redactions
+            redactions: $this->redactions,
+            minimumLevel: $this->minimumLevel
         );
     }
 
@@ -115,7 +123,26 @@ final readonly class StructuredLoggerBuilder
             context: $this->context,
             template: $this->template,
             component: $this->component,
-            redactions: array_merge($this->redactions, $redactions)
+            redactions: array_merge($this->redactions, $redactions),
+            minimumLevel: $this->minimumLevel
+        );
+    }
+
+    /**
+     * Returns a copy of the builder with the minimum level replaced.
+     *
+     * @param LogLevel $minimumLevel The lowest severity that is written, quieter entries are discarded.
+     * @return StructuredLoggerBuilder A copy of the builder with the minimum level set.
+     */
+    public function withMinimumLevel(LogLevel $minimumLevel): StructuredLoggerBuilder
+    {
+        return new StructuredLoggerBuilder(
+            stream: $this->stream,
+            context: $this->context,
+            template: $this->template,
+            component: $this->component,
+            redactions: $this->redactions,
+            minimumLevel: $minimumLevel
         );
     }
 }
