@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger\Internal\Redactor;
 
 use Closure;
-use TinyBlocks\Logger\Redaction;
+use TinyBlocks\Logger\Redactions\Redaction;
 
 final readonly class Redactor implements Redaction
 {

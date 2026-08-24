@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger\Internal\Redactor;
 
 use TinyBlocks\Collection\Collection;
-use TinyBlocks\Logger\Redaction;
+use TinyBlocks\Logger\Redactions\Redaction;
 
 /**
  * @extends Collection<Redaction>

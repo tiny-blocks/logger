@@ -14,6 +14,8 @@ parameters:
         - identifier: missingType.iterableValue
           path: src/Internal/LogFormatter.php
         - identifier: missingType.iterableValue
+          path: src/Internal/EncodedPayload.php
+        - identifier: missingType.iterableValue
           path: src/Internal/LogEntryRecorder.php
         - identifier: missingType.iterableValue
           path: src/Internal/Redactor/*.php
@@ -21,8 +23,15 @@ parameters:
           path: src/LogEntry.php
         - identifier: missingType.iterableValue
           path: src/Redactions/*.php
+        # The builders describe the redactions as a plain list of Redaction, and the loggers hand that
+        # list to the typed collection when they build. PHPDoc is prohibited on constructors, and the
+        # element type cannot be written on a promoted property, so it is lost at both crossings.
         - identifier: missingType.iterableValue
-          path: src/StructuredLoggerBuilder.php
+          path: src/StreamLoggerBuilder.php
+        - identifier: argument.type
+          path: src/StreamLogger.php
+        - identifier: argument.type
+          path: src/TelemetryLogger.php
         # The redactors traverse plain arrays into the array<string, mixed> contract of
         # Redaction::redact, and the field matcher reads plain string patterns out of an untyped
         # configuration array; the values originate as mixed log context, an irreducible boundary
@@ -36,33 +45,71 @@ parameters:
           path: src/Internal/LogEntryRecorder.php
         - identifier: argument.type
           path: src/Redactions/*.php
-        # The field matcher indexes its exact field names by value to answer in constant time. Those
-        # names come from the same untyped configuration array, so the language cannot prove the key
-        # type at that point.
-        - identifier: offsetAccess.invalidOffset
+        # The field matcher reads its field names out of the same untyped configuration array and casts
+        # each one to string before comparing, so the language cannot prove the type at that point.
+        - identifier: cast.string
           path: src/Internal/Redactor/FieldMatcher.php
         # LogStream wraps a stream resource the language can only promote as mixed; fwrite then
         # receives that mixed handle. Internal collaborator with intrinsic resource state.
         - identifier: argument.type
           path: src/Internal/Stream/LogStream.php
-        # The builder accumulates Redaction instances in a variadic pass-through array and spreads
-        # them into StructuredLogger::from(); the element type cannot be annotated on the promoted
-        # constructor parameter without prohibited PHPDoc.
+        # The metric carries its dimensions and fields as plain arrays, and the Internal collaborators
+        # that render them read those shapes back. PHPDoc is prohibited on constructors and on Internal
+        # types, and neither shape is generic, so the value type cannot be written anywhere.
+        - identifier: missingType.iterableValue
+          path: src/Metrics/Metric.php
+        - identifier: missingType.iterableValue
+          path: src/Internal/Metrics/*.php
+        # UnboundedDimensions holds the refused names in a promoted array and looks each one up among
+        # the dimension keys. The names reach it as strings through a variadic, but the element type is
+        # lost on the promoted parameter, which is the same boundary the metric line crosses.
         - identifier: argument.type
-          path: src/StructuredLoggerBuilder.php
-        # json_decode() returns mixed, so the deep recursive redaction test array-accesses a mixed
-        # value when reading the decoded payload. Descriptive PHPDoc is prohibited in tests/, so the
-        # irreducible mixed-origin offset access is suppressed for this file only.
+          path: src/Internal/Metrics/*.php
+        # UnboundedDimensions hands back one of the names it holds, which reached it as a string through a
+        # variadic. The promoted array lost the element type, and a cast to restore it would be a line no
+        # test can kill, since every name in there is already a string.
+        - identifier: return.type
+          path: src/Internal/Metrics/*.php
+        # MetricLine reads the Field values back out of the plain array the metric keeps them in, and
+        # feeds them to the redactions and back. The element type is gone on both crossings.
+        - identifier: property.nonObject
+          path: src/Internal/Metrics/*.php
+        # EmbeddedMetricFormat::format() hands back what the envelope built. MetricFormat declares the
+        # payload shape and the interface docblock is where it belongs; the value type is lost crossing
+        # the Internal collaborator, which cannot carry PHPDoc to restore it.
+        - identifier: return.type
+          path: src/Metrics/CloudWatch/*.php
+        # The metric data providers return rows of arguments and the record fixture navigates a payload
+        # whose nested shape the language cannot see. PHPDoc is prohibited anywhere inside tests/.
+        - identifier: missingType.iterableValue
+          path: tests/Unit/EmbeddedMetricFormatTest.php
+        - identifier: missingType.iterableValue
+          path: tests/Unit/MetricTest.php
+        # The test reads a Dimension and a Field back out of the plain arrays the metric keeps them in,
+        # so the element type is gone by the time the assertion reaches the value object.
+        - identifier: property.nonObject
+          path: tests/Unit/MetricTest.php
+        - identifier: missingType.iterableValue
+          path: tests/Models/EmbeddedMetricPayload.php
         - identifier: offsetAccess.nonOffsetAccessible
-          path: tests/StructuredLoggerTest.php
+          path: tests/Models/EmbeddedMetricPayload.php
+        # json_decode() returns mixed, so the deep recursive redaction test and the metric line tests
+        # array-access a mixed value when reading the decoded payload. Descriptive PHPDoc is prohibited
+        # in tests/, so the irreducible mixed-origin offset access is suppressed for those files.
+        - identifier: offsetAccess.nonOffsetAccessible
+          path: tests/Unit/StreamLoggerTest.php
+        - identifier: offsetAccess.nonOffsetAccessible
+          path: tests/Unit/TelemetryLoggerTest.php
         # The mixed values read from that decoded payload feed string-typed PHPUnit assertion
         # parameters (assertStringStartsWith, assertStringContainsString, ...). Same mixed origin.
         - identifier: argument.type
-          path: tests/StructuredLoggerTest.php
+          path: tests/Unit/StreamLoggerTest.php
+        - identifier: argument.type
+          path: tests/Unit/TelemetryLoggerTest.php
         # The data providers return lists of argument rows. Their iterable value type cannot be
         # expressed without PHPDoc, which tests/ forbids, so it is suppressed for those files.
         - identifier: missingType.iterableValue
-          path: tests/LogLevelTest.php
+          path: tests/Unit/LogLevelTest.php
         - identifier: missingType.iterableValue
-          path: tests/StructuredLoggerTest.php
+          path: tests/Unit/StreamLoggerTest.php
     reportUnmatchedIgnoredErrors: true

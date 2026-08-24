@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace TinyBlocks\Logger\Internal\Redactor;
 
+use Closure;
 use TinyBlocks\Logger\Redactions\Redaction;
 
-final readonly class ScopedRedactor implements Redaction
+final readonly class VisibleFieldRedactor implements Redaction
 {
-    public function __construct(private FieldMatcher $scope, private Redaction $redaction)
+    public function __construct(private FieldMatcher $fields, private Closure $maskingFunction)
     {
     }
 
@@ -23,12 +24,14 @@ final readonly class ScopedRedactor implements Redaction
 
     private function redactValue(int|string $key, mixed $value): mixed
     {
-        if (!is_array($value)) {
+        if (is_array($value)) {
+            return $this->redact(payload: $value);
+        }
+
+        if ($this->fields->matches(key: $key) || !is_scalar($value)) {
             return $value;
         }
 
-        $descended = $this->redact(payload: $value);
-
-        return $this->scope->matches(key: $key) ? $this->redaction->redact(payload: $descended) : $descended;
+        return ($this->maskingFunction)((string)$value);
     }
 }

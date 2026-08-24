@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace TinyBlocks\Logger\Internal\Redactor;
 
-use TinyBlocks\Logger\Exceptions\InvalidRedactionPattern;
-use TinyBlocks\Logger\Redaction;
+use TinyBlocks\Logger\Exceptions\MalformedRedactionPattern;
+use TinyBlocks\Logger\Redactions\Redaction;
 
 final readonly class PatternRedactor implements Redaction
 {
@@ -14,7 +14,7 @@ final readonly class PatternRedactor implements Redaction
         if (@preg_match($pattern, '') === false) {
             $template = 'Pattern is not a valid regular expression: %s.';
 
-            throw new InvalidRedactionPattern(message: sprintf($template, $pattern));
+            throw new MalformedRedactionPattern(message: sprintf($template, $pattern));
         }
     }
 

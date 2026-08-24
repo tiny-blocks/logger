@@ -5,12 +5,6 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger\Redactions;
 
 use TinyBlocks\Logger\Exceptions\NegativeVisibleLength;
-use TinyBlocks\Logger\Internal\Redactor\FieldMatcher;
-use TinyBlocks\Logger\Internal\Redactor\Redactor;
-use TinyBlocks\Logger\Internal\Redactor\VisibleEdges;
-use TinyBlocks\Logger\Internal\Redactor\VisibleLocalPart;
-use TinyBlocks\Logger\Mask;
-use TinyBlocks\Logger\Redaction;
 
 /**
  * Masks the local part of email field values, keeping a configurable visible prefix and the domain.
@@ -23,15 +17,10 @@ final readonly class EmailRedaction implements Redaction
 
     private function __construct(array $fields, int $visiblePrefixLength)
     {
-        $mask = Mask::proportional();
-        $localPart = new VisibleLocalPart(
-            mask: $mask,
-            localPart: new VisibleEdges(mask: $mask, prefixLength: $visiblePrefixLength, suffixLength: 0)
-        );
-
-        $this->redactor = new Redactor(
-            fields: new FieldMatcher(fields: $fields),
-            maskingFunction: $localPart->applyTo(...)
+        $this->redactor = GenericRedaction::masking(
+            mask: Mask::proportional(),
+            fields: $fields,
+            visibility: Visibility::localPart(prefixLength: $visiblePrefixLength)
         );
     }
 
@@ -39,13 +28,16 @@ final readonly class EmailRedaction implements Redaction
      * Creates an EmailRedaction from the fields to mask and the number of visible leading characters.
      *
      * @param string[] $fields The field names whose values are masked, wildcards accepted.
-     * @param int $visiblePrefixLength The number of leading characters of the local part left visible.
+     * @param int|null $visiblePrefixLength Leading characters of the local part visible, or null for the default.
      * @return EmailRedaction The created instance.
      * @throws NegativeVisibleLength If the visible prefix length is negative.
      */
-    public static function from(array $fields, int $visiblePrefixLength): EmailRedaction
+    public static function from(array $fields, ?int $visiblePrefixLength = null): EmailRedaction
     {
-        return new EmailRedaction(fields: $fields, visiblePrefixLength: $visiblePrefixLength);
+        return new EmailRedaction(
+            fields: $fields,
+            visiblePrefixLength: ($visiblePrefixLength ?? self::DEFAULT_VISIBLE_PREFIX_LENGTH)
+        );
     }
 
     /**
@@ -55,7 +47,7 @@ final readonly class EmailRedaction implements Redaction
      */
     public static function default(): EmailRedaction
     {
-        return EmailRedaction::from(fields: ['email'], visiblePrefixLength: self::DEFAULT_VISIBLE_PREFIX_LENGTH);
+        return EmailRedaction::from(fields: ['email']);
     }
 
     public function redact(array $payload): array

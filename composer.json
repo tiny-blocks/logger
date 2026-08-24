@@ -1,13 +1,16 @@
 {
     "name": "tiny-blocks/logger",
-    "description": "Emits PSR-3 structured logs for PHP, with correlation tracking, a severity threshold, and configurable redaction.",
+    "description": "Emits PSR-3 structured logs for PHP, with correlation tracking, a severity threshold, configurable redaction, and backend-neutral metrics.",
     "license": "MIT",
     "type": "library",
     "keywords": [
+        "emf",
         "psr-3",
         "logger",
+        "metrics",
         "logging",
         "redaction",
+        "cloudwatch",
         "tiny-blocks"
     ],
     "authors": [

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger\Redactions;
 
 use TinyBlocks\Logger\Exceptions\NegativeVisibleLength;
-use TinyBlocks\Logger\Mask;
-use TinyBlocks\Logger\Redaction;
-use TinyBlocks\Logger\Redactions\Rules\VisibleEdgesRedaction;
 
 /**
  * Masks name field values, keeping a configurable number of leading characters visible.
@@ -20,10 +17,10 @@ final readonly class NameRedaction implements Redaction
 
     private function __construct(array $fields, int $visiblePrefixLength)
     {
-        $this->redactor = VisibleEdgesRedaction::from(
+        $this->redactor = GenericRedaction::masking(
             mask: Mask::proportional(),
             fields: $fields,
-            visiblePrefixLength: $visiblePrefixLength
+            visibility: Visibility::edges(prefixLength: $visiblePrefixLength)
         );
     }
 
@@ -31,13 +28,16 @@ final readonly class NameRedaction implements Redaction
      * Creates a NameRedaction from the fields to mask and the number of visible leading characters.
      *
      * @param string[] $fields The field names whose values are masked, wildcards accepted.
-     * @param int $visiblePrefixLength The number of leading characters left visible.
+     * @param int|null $visiblePrefixLength Leading characters left visible, or null for the default.
      * @return NameRedaction The created instance.
      * @throws NegativeVisibleLength If the visible prefix length is negative.
      */
-    public static function from(array $fields, int $visiblePrefixLength): NameRedaction
+    public static function from(array $fields, ?int $visiblePrefixLength = null): NameRedaction
     {
-        return new NameRedaction(fields: $fields, visiblePrefixLength: $visiblePrefixLength);
+        return new NameRedaction(
+            fields: $fields,
+            visiblePrefixLength: ($visiblePrefixLength ?? self::DEFAULT_VISIBLE_PREFIX_LENGTH)
+        );
     }
 
     /**
@@ -47,7 +47,7 @@ final readonly class NameRedaction implements Redaction
      */
     public static function default(): NameRedaction
     {
-        return NameRedaction::from(fields: ['name'], visiblePrefixLength: self::DEFAULT_VISIBLE_PREFIX_LENGTH);
+        return NameRedaction::from(fields: ['name']);
     }
 
     public function redact(array $payload): array

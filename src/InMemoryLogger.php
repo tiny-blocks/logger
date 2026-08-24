@@ -16,25 +16,25 @@ use TinyBlocks\Logger\Internal\LogEntryRecorder;
  * what was logged rather than how it was rendered. Payloads are recorded exactly as received, with
  * no redaction and no formatting, so assertions read the original values.</p>
  *
- * <p>Loggers derived through {@see withContext} record into the same store as the instance they
+ * <p>Loggers derived through {@see withCorrelation} record into the same store as the instance they
  * come from, so entries logged through a derived instance are visible from either one.</p>
  */
 final readonly class InMemoryLogger implements Logger
 {
     use LoggerTrait;
 
-    private function __construct(private ?LogContext $context, private LogEntryRecorder $recorder)
+    private function __construct(private LogEntryRecorder $recorder, private ?Correlation $correlation)
     {
     }
 
     /**
-     * Creates an InMemoryLogger with no bound context and no recorded entries.
+     * Creates an InMemoryLogger with no bound correlation and no recorded entries.
      *
      * @return InMemoryLogger The created instance.
      */
     public static function create(): InMemoryLogger
     {
-        return new InMemoryLogger(context: null, recorder: new LogEntryRecorder());
+        return new InMemoryLogger(recorder: new LogEntryRecorder(), correlation: null);
     }
 
     /**
@@ -48,11 +48,11 @@ final readonly class InMemoryLogger implements Logger
     public function log(mixed $level, string|Stringable $message, array $context = []): void
     {
         $this->recorder->record(
-            entry: LogEntry::from(
+            entry: LogEntry::of(
                 key: (string)$message,
                 level: LogLevel::fromPsrLevel(level: $level),
-                context: $this->context,
-                payload: $context
+                payload: $context,
+                correlation: $this->correlation
             )
         );
     }
@@ -67,8 +67,8 @@ final readonly class InMemoryLogger implements Logger
         return $this->recorder->toLogEntries();
     }
 
-    public function withContext(LogContext $context): InMemoryLogger
+    public function withCorrelation(Correlation $correlation): InMemoryLogger
     {
-        return new InMemoryLogger(context: $context, recorder: $this->recorder);
+        return new InMemoryLogger(recorder: $this->recorder, correlation: $correlation);
     }
 }
