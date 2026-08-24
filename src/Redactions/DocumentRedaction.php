@@ -5,25 +5,22 @@ declare(strict_types=1);
 namespace TinyBlocks\Logger\Redactions;
 
 use TinyBlocks\Logger\Exceptions\NegativeVisibleLength;
-use TinyBlocks\Logger\Mask;
-use TinyBlocks\Logger\Redaction;
-use TinyBlocks\Logger\Redactions\Rules\VisibleEdgesRedaction;
 
 /**
  * Masks document field values, keeping a configurable number of trailing characters visible.
  */
 final readonly class DocumentRedaction implements Redaction
 {
-    private const int DEFAULT_VISIBLE_SUFFIX_LENGTH = 3;
+    private const int DEFAULT_VISIBLE_SUFFIX_LENGTH = 2;
 
     private Redaction $redactor;
 
     private function __construct(array $fields, int $visibleSuffixLength)
     {
-        $this->redactor = VisibleEdgesRedaction::from(
+        $this->redactor = GenericRedaction::masking(
             mask: Mask::proportional(),
             fields: $fields,
-            visibleSuffixLength: $visibleSuffixLength
+            visibility: Visibility::edges(suffixLength: $visibleSuffixLength)
         );
     }
 
@@ -31,13 +28,16 @@ final readonly class DocumentRedaction implements Redaction
      * Creates a DocumentRedaction from the fields to mask and the number of visible trailing characters.
      *
      * @param string[] $fields The field names whose values are masked, wildcards accepted.
-     * @param int $visibleSuffixLength The number of trailing characters left visible.
+     * @param int|null $visibleSuffixLength Trailing characters left visible, or null for the default.
      * @return DocumentRedaction The created instance.
      * @throws NegativeVisibleLength If the visible suffix length is negative.
      */
-    public static function from(array $fields, int $visibleSuffixLength): DocumentRedaction
+    public static function from(array $fields, ?int $visibleSuffixLength = null): DocumentRedaction
     {
-        return new DocumentRedaction(fields: $fields, visibleSuffixLength: $visibleSuffixLength);
+        return new DocumentRedaction(
+            fields: $fields,
+            visibleSuffixLength: ($visibleSuffixLength ?? self::DEFAULT_VISIBLE_SUFFIX_LENGTH)
+        );
     }
 
     /**
@@ -47,7 +47,7 @@ final readonly class DocumentRedaction implements Redaction
      */
     public static function default(): DocumentRedaction
     {
-        return DocumentRedaction::from(fields: ['document'], visibleSuffixLength: self::DEFAULT_VISIBLE_SUFFIX_LENGTH);
+        return DocumentRedaction::from(fields: ['document']);
     }
 
     public function redact(array $payload): array

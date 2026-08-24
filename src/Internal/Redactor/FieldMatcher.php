@@ -18,21 +18,31 @@ final readonly class FieldMatcher
         $exactFields = [];
 
         foreach ($fields as $field) {
-            if (strpbrk($field, self::WILDCARD_CHARACTERS) === false) {
-                $exactFields[$field] = $field;
+            $normalized = FieldMatcher::normalized(value: (string)$field);
+
+            if (strpbrk($normalized, self::WILDCARD_CHARACTERS) === false) {
+                $exactFields[$normalized] = $normalized;
                 continue;
             }
 
-            $patterns[] = $field;
+            $patterns[] = $normalized;
         }
 
         $this->patterns = $patterns;
         $this->exactFields = $exactFields;
     }
 
+    private static function normalized(string $value): string
+    {
+        $separated = preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1_$2', $value);
+        $split = preg_replace('/([a-z\d])([A-Z])/', '$1_$2', (string)$separated);
+
+        return strtolower((string)$split);
+    }
+
     public function matches(int|string $key): bool
     {
-        $candidate = (string)$key;
+        $candidate = FieldMatcher::normalized(value: (string)$key);
 
         return isset($this->exactFields[$candidate])
             || ($this->patterns !== []

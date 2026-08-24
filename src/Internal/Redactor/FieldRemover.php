@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace TinyBlocks\Logger\Internal\Redactor;
 
-use TinyBlocks\Logger\Redaction;
+use TinyBlocks\Logger\Redactions\Redaction;
 
 final readonly class FieldRemover implements Redaction
 {
