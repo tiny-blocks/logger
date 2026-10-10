@@ -14,11 +14,6 @@ IMAGE_VERSION := 1.0.0
 PHP_IMAGE := gustavofreze/php:${PHP_VERSION}-cli-${IMAGE_VERSION}
 WORKSPACE := /var/www/html
 
-# The runner drops to the calling user, as the twelve service Makefiles and the CLI already do. A
-# root runner writes `vendor/`, `reports/` and the PHPStan cache into the bind mount owned by root,
-# and then only the owner can remove them: measured at 801 root owned paths from a single
-# `make review` in this repository. COMPOSER_HOME moves off /root because that path belongs to root
-# inside the image and a uid with no passwd entry cannot write it.
 DOCKER_RUN = docker run ${PLATFORM} -u ${HOST_USER} --rm ${TTY} --net=host \
 	-e COMPOSER_HOME=/tmp/composer \
 	-v ${PWD}:${WORKSPACE} ${PHP_IMAGE}
@@ -71,7 +66,7 @@ help: ## Display this help message
 	@echo ""
 	@echo "$$(printf '$(GREEN)')Setup$$(printf '$(RESET)')"
 	@grep -E '^(configure|configure-and-update):.*?## .*$$' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*? ## "}; {printf "$(YELLOW)%-25s$(RESET) %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "$(YELLOW)%-25s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$$(printf '$(GREEN)')Testing$$(printf '$(RESET)')"
 	@grep -E '^(tests|test-file):.*?## .*$$' $(MAKEFILE_LIST) \
