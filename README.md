@@ -1185,5 +1185,5 @@ Logger is licensed under [MIT](LICENSE).
 
 ## Contributing
 
-Please follow the [contributing guidelines](https://github.com/tiny-blocks/tiny-blocks/blob/main/CONTRIBUTING.md) to
+Please follow the [contributing guidelines](https://github.com/tiny-blocks/.github/blob/main/CONTRIBUTING.md) to
 contribute to the project.
