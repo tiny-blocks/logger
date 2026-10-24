@@ -30,6 +30,16 @@ final readonly class QueryParametersRedaction implements Redaction
     }
 
     /**
+     * Builds a QueryParametersRedaction masking every query parameter.
+     *
+     * @return QueryParametersRedaction The created instance.
+     */
+    public static function default(): QueryParametersRedaction
+    {
+        return QueryParametersRedaction::keeping(fields: []);
+    }
+
+    /**
      * Creates a QueryParametersRedaction keeping only the named parameters readable.
      *
      * @param string[] $fields The parameter names left untouched, wildcards accepted.
@@ -38,16 +48,6 @@ final readonly class QueryParametersRedaction implements Redaction
     public static function keeping(array $fields): QueryParametersRedaction
     {
         return new QueryParametersRedaction(fields: $fields);
-    }
-
-    /**
-     * Builds a QueryParametersRedaction masking every query parameter.
-     *
-     * @return QueryParametersRedaction The created instance.
-     */
-    public static function default(): QueryParametersRedaction
-    {
-        return QueryParametersRedaction::keeping(fields: []);
     }
 
     public function redact(array $payload): array

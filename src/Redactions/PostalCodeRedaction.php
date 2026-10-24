@@ -19,9 +19,9 @@ use TinyBlocks\Logger\Exceptions\NegativeVisibleLength;
  */
 final readonly class PostalCodeRedaction implements Redaction
 {
-    private const int DEFAULT_VISIBLE_PREFIX_LENGTH = 3;
-
     private const array DEFAULT_FIELDS = ['post*code', 'zip*code'];
+
+    private const int DEFAULT_VISIBLE_PREFIX_LENGTH = 3;
 
     private Redaction $redactor;
 

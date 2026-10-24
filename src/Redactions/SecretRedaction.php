@@ -13,8 +13,6 @@ namespace TinyBlocks\Logger\Redactions;
  */
 final readonly class SecretRedaction implements Redaction
 {
-    private const int DEFAULT_FIXED_MASK_LENGTH = 8;
-
     private const array DEFAULT_FIELDS = [
         '*token*',
         '*secret*',
@@ -24,6 +22,8 @@ final readonly class SecretRedaction implements Redaction
         'authorization',
         '*private_key*'
     ];
+
+    private const int DEFAULT_FIXED_MASK_LENGTH = 8;
 
     private Redaction $redactor;
 

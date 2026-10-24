@@ -25,14 +25,14 @@ final readonly class EmbeddedMetricPayload
         return $this->declaration()['Metrics'];
     }
 
+    private function envelope(): array
+    {
+        return (array)$this->payload['_aws'];
+    }
+
     public function timestamp(): mixed
     {
         return $this->envelope()['Timestamp'];
-    }
-
-    public function namespaced(): mixed
-    {
-        return $this->declaration()['Namespace'];
     }
 
     public function dimensions(): mixed
@@ -40,9 +40,9 @@ final readonly class EmbeddedMetricPayload
         return $this->declaration()['Dimensions'];
     }
 
-    private function envelope(): array
+    public function namespaced(): mixed
     {
-        return (array)$this->payload['_aws'];
+        return $this->declaration()['Namespace'];
     }
 
     private function declaration(): array

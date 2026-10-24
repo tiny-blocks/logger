@@ -12,30 +12,6 @@ enum VisibleShape: string
     case WORDS = 'WORDS';
     case LOCAL_PART = 'LOCAL_PART';
 
-    public function applyTo(Mask $mask, string $value, int $prefixLength, int $suffixLength): string
-    {
-        return match ($this) {
-            VisibleShape::EDGES      => VisibleShape::edges(
-                mask: $mask,
-                value: $value,
-                prefixLength: $prefixLength,
-                suffixLength: $suffixLength
-            ),
-            VisibleShape::WORDS      => VisibleShape::words(
-                mask: $mask,
-                value: $value,
-                prefixLength: $prefixLength,
-                suffixLength: $suffixLength
-            ),
-            VisibleShape::LOCAL_PART => VisibleShape::localPart(
-                mask: $mask,
-                value: $value,
-                prefixLength: $prefixLength,
-                suffixLength: $suffixLength
-            )
-        };
-    }
-
     private static function edges(Mask $mask, string $value, int $prefixLength, int $suffixLength): string
     {
         $totalLength = mb_strlen($value, 'UTF-8');
@@ -88,5 +64,29 @@ enum VisibleShape: string
             ),
             mb_substr($value, $atPosition, null, 'UTF-8')
         );
+    }
+
+    public function applyTo(Mask $mask, string $value, int $prefixLength, int $suffixLength): string
+    {
+        return match ($this) {
+            VisibleShape::EDGES      => VisibleShape::edges(
+                mask: $mask,
+                value: $value,
+                prefixLength: $prefixLength,
+                suffixLength: $suffixLength
+            ),
+            VisibleShape::WORDS      => VisibleShape::words(
+                mask: $mask,
+                value: $value,
+                prefixLength: $prefixLength,
+                suffixLength: $suffixLength
+            ),
+            VisibleShape::LOCAL_PART => VisibleShape::localPart(
+                mask: $mask,
+                value: $value,
+                prefixLength: $prefixLength,
+                suffixLength: $suffixLength
+            )
+        };
     }
 }
