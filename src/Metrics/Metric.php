@@ -60,27 +60,6 @@ final readonly class Metric
     }
 
     /**
-     * Returns a copy of the metric carrying no field at all.
-     *
-     * <p>What survives a redaction is what the record should carry, so a caller that filters the
-     * fields rebuilds them from an empty one instead of writing over the originals: a field the
-     * filter dropped has no value to write, and would otherwise stay.</p>
-     *
-     * @return Metric A copy with every field removed.
-     */
-    public function withoutFields(): Metric
-    {
-        return new Metric(
-            name: $this->name,
-            unit: $this->unit,
-            value: $this->value,
-            fields: [],
-            namespace: $this->namespace,
-            dimensions: $this->dimensions
-        );
-    }
-
-    /**
      * Returns a copy of the metric expressed in another unit.
      *
      * @param MetricUnit $unit The unit the value is expressed in.
@@ -160,6 +139,27 @@ final readonly class Metric
             fields: $this->fields,
             namespace: $this->namespace,
             dimensions: [...$this->dimensions, $name => MetricDimension::of(name: $name, value: $value)]
+        );
+    }
+
+    /**
+     * Returns a copy of the metric carrying no field at all.
+     *
+     * <p>What survives a redaction is what the record should carry, so a caller that filters the
+     * fields rebuilds them from an empty one instead of writing over the originals: a field the
+     * filter dropped has no value to write, and would otherwise stay.</p>
+     *
+     * @return Metric A copy with every field removed.
+     */
+    public function withoutFields(): Metric
+    {
+        return new Metric(
+            name: $this->name,
+            unit: $this->unit,
+            value: $this->value,
+            fields: [],
+            namespace: $this->namespace,
+            dimensions: $this->dimensions
         );
     }
 }

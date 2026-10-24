@@ -58,28 +58,6 @@ final class RedactionsTest extends TestCase
         self::assertStringContainsString('data={"phone":"+5511*****7766"}', $this->logStream->contents());
     }
 
-    public function testRedactWhenVisibleWordsThenMasksEachWordApart(): void
-    {
-        /** @Given a structured logger masking each word of a name with a fixed-width mask */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'user-service')
-            ->withRedactions(
-                GenericRedaction::masking(
-                    mask: Mask::fixed(length: 3),
-                    fields: ['name'],
-                    visibility: Visibility::words(prefixLength: 2)
-                )
-            )
-            ->build();
-
-        /** @When logging with a name made of several words */
-        $logger->info(message: 'user.created', context: ['name' => 'Gustavo Freze']);
-
-        /** @Then every word keeps its own visible prefix */
-        self::assertStringContainsString('data={"name":"Gu*** Fr***"}', $this->logStream->contents());
-    }
-
     public function testRedactWhenFullMaskThenHidesTheValueLength(): void
     {
         /** @Given a structured logger masking two fields of different lengths with a fixed mask */
@@ -214,6 +192,28 @@ final class RedactionsTest extends TestCase
 
         /** @And the scope is honored at any depth */
         self::assertStringContainsString('"charge":{"document":{"value":"*********00"}}', $output);
+    }
+
+    public function testRedactWhenVisibleWordsThenMasksEachWordApart(): void
+    {
+        /** @Given a structured logger masking each word of a name with a fixed-width mask */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'user-service')
+            ->withRedactions(
+                GenericRedaction::masking(
+                    mask: Mask::fixed(length: 3),
+                    fields: ['name'],
+                    visibility: Visibility::words(prefixLength: 2)
+                )
+            )
+            ->build();
+
+        /** @When logging with a name made of several words */
+        $logger->info(message: 'user.created', context: ['name' => 'Gustavo Freze']);
+
+        /** @Then every word keeps its own visible prefix */
+        self::assertStringContainsString('data={"name":"Gu*** Fr***"}', $this->logStream->contents());
     }
 
     public function testRedactWhenPatternMatchesTextThenMasksTheMatch(): void
@@ -449,26 +449,27 @@ final class RedactionsTest extends TestCase
         );
     }
 
-    public function testRedactWhenVisibleWordsHaveNoPrefixThenMasksEveryWordHead(): void
+    public function testRedactWhenAllowListAndNullValueThenLeavesItUntouched(): void
     {
-        /** @Given a structured logger masking each word down to its last character */
+        /** @Given a structured logger allowing only the city field */
         $logger = StreamLogger::builder()
             ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'user-service')
-            ->withRedactions(
-                GenericRedaction::masking(
-                    mask: Mask::proportional(),
-                    fields: ['name'],
-                    visibility: Visibility::words(suffixLength: 1)
-                )
-            )
+            ->withComponent(component: 'payment-service')
+            ->withRedactions(GenericRedaction::keeping(fields: ['city'], mask: Mask::fixed(length: 3)))
             ->build();
 
-        /** @When logging with a name made of several words */
-        $logger->info(message: 'user.created', context: ['name' => 'Gustavo Freze']);
+        /** @When logging with an absent value and a nested allowed field */
+        $logger->info(message: 'address.saved', context: [
+            'city'   => 'São Paulo',
+            'street' => null,
+            'nested' => ['city' => 'Rio', 'label' => 'x']
+        ]);
 
-        /** @Then every word keeps only its trailing character */
-        self::assertStringContainsString('data={"name":"******o ****e"}', $this->logStream->contents());
+        /** @Then the absent value is written as is and the nested allow list still applies */
+        $output = $this->logStream->contents();
+
+        self::assertStringContainsString('"city":"São Paulo","street":null', $output);
+        self::assertStringContainsString('"nested":{"city":"Rio","label":"***"}', $output);
     }
 
     public function testRedactWhenUrlCarriesAQueryStringThenOnlyThePathSurvives(): void
@@ -495,7 +496,7 @@ final class RedactionsTest extends TestCase
         );
     }
 
-    public function testRedactWhenFilterComparesThenOperandIsMaskedAndOperatorSurvives(): void
+    public function testRedactWhenValueCarriesNoComparisonThenLeavesItUntouched(): void
     {
         /** @Given a structured logger masking filter operands */
         $logger = StreamLogger::builder()
@@ -504,17 +505,106 @@ final class RedactionsTest extends TestCase
             ->withRedactions(FilterExpressionRedaction::default())
             ->build();
 
-        /** @When logging filters that compare, negate, and range over values */
-        $logger->info(message: 'query.received', context: [
-            'equality' => 'status==active;document==12345678900',
-            'negation' => 'status!=canceled',
-            'range'    => 'created_at=ge=2026-01-01,created_at=le=2026-02-01'
+        /** @When logging a value that carries no comparison at all */
+        $logger->info(message: 'query.received', context: ['sort' => 'created_at desc']);
+
+        /** @Then it travels unchanged, because there is no operand to mask */
+        self::assertStringContainsString('data={"sort":"created_at desc"}', $this->logStream->contents());
+    }
+
+    public function testRedactWhenVisibleWordsHaveNoPrefixThenMasksEveryWordHead(): void
+    {
+        /** @Given a structured logger masking each word down to its last character */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'user-service')
+            ->withRedactions(
+                GenericRedaction::masking(
+                    mask: Mask::proportional(),
+                    fields: ['name'],
+                    visibility: Visibility::words(suffixLength: 1)
+                )
+            )
+            ->build();
+
+        /** @When logging with a name made of several words */
+        $logger->info(message: 'user.created', context: ['name' => 'Gustavo Freze']);
+
+        /** @Then every word keeps only its trailing character */
+        self::assertStringContainsString('data={"name":"******o ****e"}', $this->logStream->contents());
+    }
+
+    public function testRedactWhenBirthDateWindowIsGivenThenItOverridesTheDefault(): void
+    {
+        /** @Given a structured logger hiding the year as well */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'payment-service')
+            ->withRedactions(BirthDateRedaction::from(fields: ['birth_date'], visiblePrefixLength: 0))
+            ->build();
+
+        /** @When logging a payer carrying a date of birth */
+        $logger->info(message: 'payer.registered', context: ['birth_date' => '1990-07-21']);
+
+        /** @Then nothing of the date survives but its shape, and not the year the default would keep */
+        self::assertStringContainsString('data={"birth_date":"****-**-**"}', $this->logStream->contents());
+    }
+
+    public function testRedactWhenPostalCodeWindowIsGivenThenItOverridesTheDefault(): void
+    {
+        /** @Given a structured logger keeping more of the code than the default three characters */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'payment-service')
+            ->withRedactions(PostalCodeRedaction::from(fields: ['postal_code'], visiblePrefixLength: 5))
+            ->build();
+
+        /** @When logging an address */
+        $logger->info(message: 'address.given', context: ['postal_code' => '01310-100']);
+
+        /** @Then five characters survive, and not the three the default would keep */
+        self::assertStringContainsString('data={"postal_code":"01310-***"}', $this->logStream->contents());
+    }
+
+    public function testRedactWhenEmailPrefixIsGivenThenItOverridesTheDefaultWindow(): void
+    {
+        /** @Given a structured logger showing more of the local part than the default two characters */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'user-service')
+            ->withRedactions(EmailRedaction::from(fields: ['email'], visiblePrefixLength: 4))
+            ->build();
+
+        /** @When logging an address */
+        $logger->info(message: 'user.created', context: ['email' => 'maria.silva@example.com']);
+
+        /** @Then four characters of the local part survive, and not the two the default would keep */
+        self::assertStringContainsString('data={"email":"mari*******@example.com"}', $this->logStream->contents());
+    }
+
+    public function testRedactWhenFieldIsSpelledInAnotherCaseThenTheSameRuleCoversIt(): void
+    {
+        /** @Given a structured logger with the strategies that name their fields in snake case */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'payment-service')
+            ->withRedactions(SecretRedaction::default(), PostalCodeRedaction::default(), BirthDateRedaction::default())
+            ->build();
+
+        /** @When logging a payload that spells the same names in camel case and with an acronym */
+        $logger->info(message: 'payer.registered', context: [
+            'postalCode'     => '01310-100',
+            'birthDate'      => '1990-07-21',
+            'accessToken'    => 'at-1',
+            'debitCardToken' => 'tok-1',
+            'APIKey'         => 'ak-1',
+            'plan'           => 'saas'
         ]);
 
-        /** @Then every operand is masked and every field and operator stays readable */
+        /** @Then every spelling of a covered name is masked, and the field nobody named survives */
         self::assertStringContainsString(
-            'data={"equality":"status==********;document==********","negation":"status!=********",'
-            . '"range":"created_at=ge=********,created_at=le=********"}',
+            'data={"postalCode":"013**-***","birthDate":"1990-**-**","accessToken":"********",'
+            . '"debitCardToken":"********","APIKey":"********","plan":"saas"}',
             $this->logStream->contents()
         );
     }
@@ -540,36 +630,48 @@ final class RedactionsTest extends TestCase
         );
     }
 
-    public function testRedactWhenValueCarriesNoComparisonThenLeavesItUntouched(): void
+    public function testRedactWhenPostalCodeThenKeepsTheLeadingCharactersOfTheRegion(): void
     {
-        /** @Given a structured logger masking filter operands */
+        /** @Given a structured logger with postal code redaction over three shapes of code */
         $logger = StreamLogger::builder()
             ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'ledger')
-            ->withRedactions(FilterExpressionRedaction::default())
+            ->withComponent(component: 'payment-service')
+            ->withRedactions(PostalCodeRedaction::from(fields: ['postal_code', 'zip', 'outward']))
             ->build();
 
-        /** @When logging a value that carries no comparison at all */
-        $logger->info(message: 'query.received', context: ['sort' => 'created_at desc']);
+        /** @When logging an address carrying each of them */
+        $logger->info(message: 'address.given', context: [
+            'postal_code' => '01310-100',
+            'zip'         => '94103',
+            'outward'     => 'SW1A 1AA'
+        ]);
 
-        /** @Then it travels unchanged, because there is no operand to mask */
-        self::assertStringContainsString('data={"sort":"created_at desc"}', $this->logStream->contents());
+        /** @Then each keeps the leading characters that name the region, with the separators preserved */
+        self::assertStringContainsString(
+            'data={"postal_code":"013**-***","zip":"941**","outward":"SW1* ***"}',
+            $this->logStream->contents()
+        );
     }
 
-    public function testRedactWhenEmailPrefixIsGivenThenItOverridesTheDefaultWindow(): void
+    public function testRedactWhenNoQueryParameterIsAllowedThenEveryOneOfThemIsMasked(): void
     {
-        /** @Given a structured logger showing more of the local part than the default two characters */
+        /** @Given a structured logger allowing no query parameter at all */
         $logger = StreamLogger::builder()
             ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'user-service')
-            ->withRedactions(EmailRedaction::from(fields: ['email'], visiblePrefixLength: 4))
+            ->withComponent(component: 'identity')
+            ->withRedactions(QueryParametersRedaction::default())
             ->build();
 
-        /** @When logging an address */
-        $logger->info(message: 'user.created', context: ['email' => 'maria.silva@example.com']);
+        /** @When logging a request carrying two of them */
+        $logger->info(message: 'request.received', context: [
+            'query_parameters' => ['sort' => 'created_at', 'document' => '12345678900']
+        ]);
 
-        /** @Then four characters of the local part survive, and not the two the default would keep */
-        self::assertStringContainsString('data={"email":"mari*******@example.com"}', $this->logStream->contents());
+        /** @Then both are masked, because a parameter is readable only when it is named */
+        self::assertStringContainsString(
+            'data={"query_parameters":{"sort":"********","document":"********"}}',
+            $this->logStream->contents()
+        );
     }
 
     public function testRedactWhenQueryParametersAreAllowedThenOnlyTheOthersAreMasked(): void
@@ -596,158 +698,26 @@ final class RedactionsTest extends TestCase
         );
     }
 
-    public function testRedactWhenNoQueryParameterIsAllowedThenEveryOneOfThemIsMasked(): void
+    public function testRedactWhenFilterComparesThenOperandIsMaskedAndOperatorSurvives(): void
     {
-        /** @Given a structured logger allowing no query parameter at all */
+        /** @Given a structured logger masking filter operands */
         $logger = StreamLogger::builder()
             ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'identity')
-            ->withRedactions(QueryParametersRedaction::default())
+            ->withComponent(component: 'ledger')
+            ->withRedactions(FilterExpressionRedaction::default())
             ->build();
 
-        /** @When logging a request carrying two of them */
-        $logger->info(message: 'request.received', context: [
-            'query_parameters' => ['sort' => 'created_at', 'document' => '12345678900']
+        /** @When logging filters that compare, negate, and range over values */
+        $logger->info(message: 'query.received', context: [
+            'equality' => 'status==active;document==12345678900',
+            'negation' => 'status!=canceled',
+            'range'    => 'created_at=ge=2026-01-01,created_at=le=2026-02-01'
         ]);
 
-        /** @Then both are masked, because a parameter is readable only when it is named */
+        /** @Then every operand is masked and every field and operator stays readable */
         self::assertStringContainsString(
-            'data={"query_parameters":{"sort":"********","document":"********"}}',
-            $this->logStream->contents()
-        );
-    }
-
-    public function testRedactWhenBirthDateTravelsUnderAnotherNameThenTheDefaultCoversIt(): void
-    {
-        /** @Given a structured logger with the default birth date redaction */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'payment-service')
-            ->withRedactions(BirthDateRedaction::default())
-            ->build();
-
-        /** @When logging the same date under each name it travels by, next to a field that only looks alike */
-        $logger->info(message: 'payer.registered', context: [
-            'birth_date'    => '1990-07-21',
-            'birthdate'     => '1990-07-21',
-            'date_of_birth' => '1990-07-21',
-            'birthplace'    => 'São Paulo',
-            'plan'          => 'saas'
-        ]);
-
-        /** @Then the year and the separators survive in each of them, and the lookalike is untouched */
-        self::assertStringContainsString(
-            'data={"birth_date":"1990-**-**","birthdate":"1990-**-**","date_of_birth":"1990-**-**",'
-            . '"birthplace":"São Paulo","plan":"saas"}',
-            $this->logStream->contents()
-        );
-    }
-
-    public function testRedactWhenBirthDateWindowIsGivenThenItOverridesTheDefault(): void
-    {
-        /** @Given a structured logger hiding the year as well */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'payment-service')
-            ->withRedactions(BirthDateRedaction::from(fields: ['birth_date'], visiblePrefixLength: 0))
-            ->build();
-
-        /** @When logging a payer carrying a date of birth */
-        $logger->info(message: 'payer.registered', context: ['birth_date' => '1990-07-21']);
-
-        /** @Then nothing of the date survives but its shape, and not the year the default would keep */
-        self::assertStringContainsString('data={"birth_date":"****-**-**"}', $this->logStream->contents());
-    }
-
-    public function testRedactWhenPostalCodeThenKeepsTheLeadingCharactersOfTheRegion(): void
-    {
-        /** @Given a structured logger with postal code redaction over three shapes of code */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'payment-service')
-            ->withRedactions(PostalCodeRedaction::from(fields: ['postal_code', 'zip', 'outward']))
-            ->build();
-
-        /** @When logging an address carrying each of them */
-        $logger->info(message: 'address.given', context: [
-            'postal_code' => '01310-100',
-            'zip'         => '94103',
-            'outward'     => 'SW1A 1AA'
-        ]);
-
-        /** @Then each keeps the leading characters that name the region, with the separators preserved */
-        self::assertStringContainsString(
-            'data={"postal_code":"013**-***","zip":"941**","outward":"SW1* ***"}',
-            $this->logStream->contents()
-        );
-    }
-
-    public function testRedactWhenPostalCodeTravelsUnderAnotherNameThenTheDefaultStillCoversIt(): void
-    {
-        /** @Given a structured logger with the default postal code redaction */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'payment-service')
-            ->withRedactions(PostalCodeRedaction::default())
-            ->build();
-
-        /** @When logging the same value under each name it travels by, next to fields that only look alike */
-        $logger->info(message: 'address.given', context: [
-            'postal_code' => '01310-100',
-            'postcode'    => '01310-100',
-            'zip_code'    => '01310-100',
-            'zip'         => 'invoices.zip',
-            'area_code'   => '11',
-            'city'        => 'São Paulo'
-        ]);
-
-        /** @Then every name of the postal code is masked past the region, and the lookalikes are not */
-        self::assertStringContainsString(
-            'data={"postal_code":"013**-***","postcode":"013**-***","zip_code":"013**-***",'
-            . '"zip":"invoices.zip","area_code":"11","city":"São Paulo"}',
-            $this->logStream->contents()
-        );
-    }
-
-    public function testRedactWhenPostalCodeWindowIsGivenThenItOverridesTheDefault(): void
-    {
-        /** @Given a structured logger keeping more of the code than the default three characters */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'payment-service')
-            ->withRedactions(PostalCodeRedaction::from(fields: ['postal_code'], visiblePrefixLength: 5))
-            ->build();
-
-        /** @When logging an address */
-        $logger->info(message: 'address.given', context: ['postal_code' => '01310-100']);
-
-        /** @Then five characters survive, and not the three the default would keep */
-        self::assertStringContainsString('data={"postal_code":"01310-***"}', $this->logStream->contents());
-    }
-
-    public function testRedactWhenFieldIsSpelledInAnotherCaseThenTheSameRuleCoversIt(): void
-    {
-        /** @Given a structured logger with the strategies that name their fields in snake case */
-        $logger = StreamLogger::builder()
-            ->withStream(stream: $this->logStream->handle())
-            ->withComponent(component: 'payment-service')
-            ->withRedactions(SecretRedaction::default(), PostalCodeRedaction::default(), BirthDateRedaction::default())
-            ->build();
-
-        /** @When logging a payload that spells the same names in camel case and with an acronym */
-        $logger->info(message: 'payer.registered', context: [
-            'postalCode'     => '01310-100',
-            'birthDate'      => '1990-07-21',
-            'accessToken'    => 'at-1',
-            'debitCardToken' => 'tok-1',
-            'APIKey'         => 'ak-1',
-            'plan'           => 'saas'
-        ]);
-
-        /** @Then every spelling of a covered name is masked, and the field nobody named survives */
-        self::assertStringContainsString(
-            'data={"postalCode":"013**-***","birthDate":"1990-**-**","accessToken":"********",'
-            . '"debitCardToken":"********","APIKey":"********","plan":"saas"}',
+            'data={"equality":"status==********;document==********","negation":"status!=********",'
+            . '"range":"created_at=ge=********,created_at=le=********"}',
             $this->logStream->contents()
         );
     }
@@ -803,26 +773,56 @@ final class RedactionsTest extends TestCase
         );
     }
 
-    public function testRedactWhenAllowListAndNullValueThenLeavesItUntouched(): void
+    public function testRedactWhenBirthDateTravelsUnderAnotherNameThenTheDefaultCoversIt(): void
     {
-        /** @Given a structured logger allowing only the city field */
+        /** @Given a structured logger with the default birth date redaction */
         $logger = StreamLogger::builder()
             ->withStream(stream: $this->logStream->handle())
             ->withComponent(component: 'payment-service')
-            ->withRedactions(GenericRedaction::keeping(fields: ['city'], mask: Mask::fixed(length: 3)))
+            ->withRedactions(BirthDateRedaction::default())
             ->build();
 
-        /** @When logging with an absent value and a nested allowed field */
-        $logger->info(message: 'address.saved', context: [
-            'city'   => 'São Paulo',
-            'street' => null,
-            'nested' => ['city' => 'Rio', 'label' => 'x']
+        /** @When logging the same date under each name it travels by, next to a field that only looks alike */
+        $logger->info(message: 'payer.registered', context: [
+            'birth_date'    => '1990-07-21',
+            'birthdate'     => '1990-07-21',
+            'date_of_birth' => '1990-07-21',
+            'birthplace'    => 'São Paulo',
+            'plan'          => 'saas'
         ]);
 
-        /** @Then the absent value is written as is and the nested allow list still applies */
-        $output = $this->logStream->contents();
+        /** @Then the year and the separators survive in each of them, and the lookalike is untouched */
+        self::assertStringContainsString(
+            'data={"birth_date":"1990-**-**","birthdate":"1990-**-**","date_of_birth":"1990-**-**",'
+            . '"birthplace":"São Paulo","plan":"saas"}',
+            $this->logStream->contents()
+        );
+    }
 
-        self::assertStringContainsString('"city":"São Paulo","street":null', $output);
-        self::assertStringContainsString('"nested":{"city":"Rio","label":"***"}', $output);
+    public function testRedactWhenPostalCodeTravelsUnderAnotherNameThenTheDefaultStillCoversIt(): void
+    {
+        /** @Given a structured logger with the default postal code redaction */
+        $logger = StreamLogger::builder()
+            ->withStream(stream: $this->logStream->handle())
+            ->withComponent(component: 'payment-service')
+            ->withRedactions(PostalCodeRedaction::default())
+            ->build();
+
+        /** @When logging the same value under each name it travels by, next to fields that only look alike */
+        $logger->info(message: 'address.given', context: [
+            'postal_code' => '01310-100',
+            'postcode'    => '01310-100',
+            'zip_code'    => '01310-100',
+            'zip'         => 'invoices.zip',
+            'area_code'   => '11',
+            'city'        => 'São Paulo'
+        ]);
+
+        /** @Then every name of the postal code is masked past the region, and the lookalikes are not */
+        self::assertStringContainsString(
+            'data={"postal_code":"013**-***","postcode":"013**-***","zip_code":"013**-***",'
+            . '"zip":"invoices.zip","area_code":"11","city":"São Paulo"}',
+            $this->logStream->contents()
+        );
     }
 }

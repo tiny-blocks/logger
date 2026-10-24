@@ -20,9 +20,9 @@ use TinyBlocks\Logger\Exceptions\NegativeVisibleLength;
  */
 final readonly class BirthDateRedaction implements Redaction
 {
-    private const int DEFAULT_VISIBLE_PREFIX_LENGTH = 4;
-
     private const array DEFAULT_FIELDS = ['birth*date', 'date_of_birth'];
+
+    private const int DEFAULT_VISIBLE_PREFIX_LENGTH = 4;
 
     private Redaction $redactor;
 
